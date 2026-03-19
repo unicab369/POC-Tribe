@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { events } from '$lib/stores/events';
 	import EventCard from '$lib/components/EventCard.svelte';
-	import type { Event } from '$lib/types';
+	import type { EventCategory } from '$lib/types';
 
 	let search = $state('');
-	let activeCategory = $state<Event['category'] | 'all'>('all');
+	let activeCategory = $state<EventCategory | 'all'>('all');
 
-	const categories: Array<{ value: Event['category'] | 'all'; label: string }> = [
+	const categories: Array<{ value: EventCategory | 'all'; label: string }> = [
 		{ value: 'all', label: 'All' },
 		{ value: 'social', label: 'Social' },
 		{ value: 'business', label: 'Business' },
 		{ value: 'sports', label: 'Sports' },
 		{ value: 'music', label: 'Music' },
+		{ value: 'travel', label: 'Travel' },
+		{ value: 'wedding', label: 'Wedding' },
 		{ value: 'other', label: 'Other' }
 	];
 
@@ -22,7 +24,7 @@
 				const matchesCategory = activeCategory === 'all' || e.category === activeCategory;
 				return matchesSearch && matchesCategory;
 			})
-			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+			.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 	);
 </script>
 

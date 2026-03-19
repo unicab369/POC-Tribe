@@ -6,13 +6,13 @@
 
 	let upcomingEvents = $derived(
 		allEvents
-			.filter((e) => new Date(e.date) >= new Date(new Date().toDateString()))
-			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+			.filter((e) => new Date(e.startDate) >= new Date(new Date().toDateString()))
+			.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 			.slice(0, 3)
 	);
 
 	let upcomingCount = $derived(
-		allEvents.filter((e) => new Date(e.date) >= new Date(new Date().toDateString())).length
+		allEvents.filter((e) => new Date(e.startDate) >= new Date(new Date().toDateString())).length
 	);
 </script>
 
