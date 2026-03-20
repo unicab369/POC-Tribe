@@ -13,6 +13,18 @@ const mockEvents: Event[] = [
 		attendees: 4,
 		itinerary: [
 			{
+				type: 'flight',
+				id: 'f3',
+				airline: 'Alaska',
+				flightNumber: 'AS 1023',
+				date: '2026-04-20',
+				departureTime: '06:00',
+				arrivalTime: '08:30',
+				from: 'SEA',
+				to: 'SFO',
+				status: 'finalized'
+			},
+			{
 				type: 'car-rental',
 				id: 'cr1',
 				pickupDate: '2026-04-20',
@@ -20,7 +32,8 @@ const mockEvents: Event[] = [
 				returnDate: '2026-04-24',
 				returnTime: '17:00',
 				pickupLocation: 'SFO Airport',
-				returnLocation: 'SAN Airport'
+				returnLocation: 'SAN Airport',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -30,7 +43,8 @@ const mockEvents: Event[] = [
 				startTime: '10:30',
 				endTime: '12:00',
 				location: 'Golden Gate Bridge, San Francisco',
-				notes: 'Start the trip with iconic views'
+				notes: 'Start the trip with iconic views',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -40,7 +54,8 @@ const mockEvents: Event[] = [
 				startTime: '13:00',
 				endTime: '16:00',
 				location: 'Highway 1',
-				notes: 'Stop at Half Moon Bay for lunch'
+				notes: 'Stop at Half Moon Bay for lunch',
+				status: 'finalized'
 			},
 			{
 				type: 'hotel',
@@ -49,7 +64,8 @@ const mockEvents: Event[] = [
 				checkInDate: '2026-04-20',
 				checkOutDate: '2026-04-21',
 				location: 'Monterey, CA',
-				confirmationNumber: 'MBI-44821'
+				confirmationNumber: 'MBI-44821',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -59,7 +75,8 @@ const mockEvents: Event[] = [
 				startTime: '09:00',
 				endTime: '12:00',
 				location: 'Monterey Bay Aquarium',
-				notes: 'Tickets pre-booked'
+				notes: 'Tickets pre-booked',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -69,7 +86,8 @@ const mockEvents: Event[] = [
 				startTime: '13:00',
 				endTime: '15:30',
 				location: 'Pebble Beach, CA',
-				notes: 'Scenic drive through Pebble Beach'
+				notes: 'Scenic drive through Pebble Beach',
+				status: 'voting'
 			},
 			{
 				type: 'hotel',
@@ -78,7 +96,8 @@ const mockEvents: Event[] = [
 				checkInDate: '2026-04-21',
 				checkOutDate: '2026-04-22',
 				location: 'Big Sur, CA',
-				confirmationNumber: 'BSRI-7723'
+				confirmationNumber: 'BSRI-7723',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -88,7 +107,8 @@ const mockEvents: Event[] = [
 				startTime: '08:00',
 				endTime: '12:00',
 				location: 'Big Sur, CA',
-				notes: 'Morning hike and beach visit'
+				notes: 'Morning hike and beach visit',
+				status: 'todo'
 			},
 			{
 				type: 'activity',
@@ -98,7 +118,8 @@ const mockEvents: Event[] = [
 				startTime: '13:00',
 				endTime: '17:00',
 				location: 'Highway 101',
-				notes: ''
+				notes: '',
+				status: 'finalized'
 			},
 			{
 				type: 'hotel',
@@ -107,7 +128,8 @@ const mockEvents: Event[] = [
 				checkInDate: '2026-04-22',
 				checkOutDate: '2026-04-23',
 				location: 'Santa Barbara, CA',
-				confirmationNumber: 'SBI-9912'
+				confirmationNumber: 'SBI-9912',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -117,7 +139,8 @@ const mockEvents: Event[] = [
 				startTime: '10:00',
 				endTime: '14:00',
 				location: 'Santa Barbara, CA',
-				notes: 'Visit local wineries in the Funk Zone'
+				notes: 'Visit local wineries in the Funk Zone',
+				status: 'voting'
 			},
 			{
 				type: 'activity',
@@ -127,7 +150,8 @@ const mockEvents: Event[] = [
 				startTime: '15:00',
 				endTime: '19:00',
 				location: 'Highway 101',
-				notes: ''
+				notes: '',
+				status: 'finalized'
 			},
 			{
 				type: 'hotel',
@@ -136,7 +160,8 @@ const mockEvents: Event[] = [
 				checkInDate: '2026-04-23',
 				checkOutDate: '2026-04-24',
 				location: 'San Diego, CA',
-				confirmationNumber: 'HDC-5561'
+				confirmationNumber: 'HDC-5561',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -146,7 +171,20 @@ const mockEvents: Event[] = [
 				startTime: '08:00',
 				endTime: '10:00',
 				location: 'Coronado Beach, San Diego',
-				notes: 'Last morning at the beach before heading to airport'
+				notes: 'Last morning at the beach before heading to airport',
+				status: 'todo'
+			},
+			{
+				type: 'flight',
+				id: 'f4',
+				airline: 'Alaska',
+				flightNumber: 'AS 1078',
+				date: '2026-04-24',
+				departureTime: '13:00',
+				arrivalTime: '15:30',
+				from: 'SAN',
+				to: 'SEA',
+				status: 'finalized'
 			}
 		],
 		createdAt: '2026-03-01T10:00:00Z'
@@ -170,7 +208,8 @@ const mockEvents: Event[] = [
 				departureTime: '08:30',
 				arrivalTime: '11:00',
 				from: 'JFK',
-				to: 'SFO'
+				to: 'SFO',
+				status: 'finalized'
 			},
 			{
 				type: 'car-rental',
@@ -180,7 +219,8 @@ const mockEvents: Event[] = [
 				returnDate: '2026-05-10',
 				returnTime: '14:00',
 				pickupLocation: 'SFO Airport',
-				returnLocation: 'SFO Airport'
+				returnLocation: 'SFO Airport',
+				status: 'finalized'
 			},
 			{
 				type: 'hotel',
@@ -189,7 +229,8 @@ const mockEvents: Event[] = [
 				checkInDate: '2026-05-08',
 				checkOutDate: '2026-05-10',
 				location: 'Yountville, Napa Valley',
-				confirmationNumber: 'NVL-33021'
+				confirmationNumber: 'NVL-33021',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -199,7 +240,8 @@ const mockEvents: Event[] = [
 				startTime: '18:00',
 				endTime: '21:00',
 				location: 'The French Laundry Garden',
-				notes: 'Cocktail attire. Welcome drinks at 6, dinner at 7.'
+				notes: 'Cocktail attire. Welcome drinks at 6, dinner at 7.',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -209,7 +251,8 @@ const mockEvents: Event[] = [
 				startTime: '16:00',
 				endTime: '17:00',
 				location: 'Domaine Chandon Vineyard',
-				notes: 'Formal attire. Outdoor ceremony — bring sunglasses.'
+				notes: 'Formal attire. Outdoor ceremony — bring sunglasses.',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -219,7 +262,8 @@ const mockEvents: Event[] = [
 				startTime: '17:30',
 				endTime: '23:00',
 				location: 'Domaine Chandon Vineyard',
-				notes: 'Dinner, dancing, and celebrations!'
+				notes: 'Dinner, dancing, and celebrations!',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -229,7 +273,8 @@ const mockEvents: Event[] = [
 				startTime: '10:00',
 				endTime: '12:00',
 				location: 'Napa Valley Lodge Patio',
-				notes: 'Casual. Say goodbyes before departing.'
+				notes: 'Casual. Say goodbyes before departing.',
+				status: 'todo'
 			},
 			{
 				type: 'flight',
@@ -240,7 +285,8 @@ const mockEvents: Event[] = [
 				departureTime: '17:00',
 				arrivalTime: '01:15',
 				from: 'SFO',
-				to: 'JFK'
+				to: 'JFK',
+				status: 'finalized'
 			}
 		],
 		createdAt: '2026-03-05T14:30:00Z'
@@ -263,7 +309,8 @@ const mockEvents: Event[] = [
 				startTime: '19:00',
 				endTime: '21:00',
 				location: 'Innovation Hub, 3rd Floor',
-				notes: '10 startups, 5 minutes each, followed by Q&A'
+				notes: '10 startups, 5 minutes each, followed by Q&A',
+				status: 'finalized'
 			},
 			{
 				type: 'activity',
@@ -273,7 +320,8 @@ const mockEvents: Event[] = [
 				startTime: '21:00',
 				endTime: '22:30',
 				location: 'Innovation Hub Rooftop',
-				notes: 'Open bar and appetizers'
+				notes: 'Open bar and appetizers',
+				status: 'finalized'
 			}
 		],
 		createdAt: '2026-03-05T14:30:00Z'
@@ -296,7 +344,8 @@ const mockEvents: Event[] = [
 				startTime: '20:00',
 				endTime: '23:00',
 				location: 'The Blue Note Cafe',
-				notes: 'Three sets with local artists'
+				notes: 'Three sets with local artists',
+				status: 'finalized'
 			}
 		],
 		createdAt: '2026-03-12T16:00:00Z'

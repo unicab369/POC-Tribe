@@ -1,5 +1,7 @@
 export type EventCategory = 'social' | 'business' | 'sports' | 'music' | 'travel' | 'wedding' | 'other';
 
+export type ItemStatus = 'todo' | 'voting' | 'finalized' | 'cancelled';
+
 export interface ActivityItem {
 	type: 'activity';
 	id: string;
@@ -9,6 +11,7 @@ export interface ActivityItem {
 	endTime: string;
 	location: string;
 	notes: string;
+	status: ItemStatus;
 }
 
 export interface FlightItem {
@@ -21,6 +24,7 @@ export interface FlightItem {
 	arrivalTime: string;
 	from: string;
 	to: string;
+	status: ItemStatus;
 }
 
 export interface HotelItem {
@@ -31,6 +35,7 @@ export interface HotelItem {
 	checkOutDate: string;
 	location: string;
 	confirmationNumber: string;
+	status: ItemStatus;
 }
 
 export interface CarRentalItem {
@@ -42,6 +47,7 @@ export interface CarRentalItem {
 	returnTime: string;
 	pickupLocation: string;
 	returnLocation: string;
+	status: ItemStatus;
 }
 
 export type ItineraryItem = ActivityItem | FlightItem | HotelItem | CarRentalItem;

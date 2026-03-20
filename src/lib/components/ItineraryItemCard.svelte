@@ -1,6 +1,20 @@
 <script lang="ts">
-	import type { ItineraryItem } from '$lib/types';
+	import type { ItineraryItem, ItemStatus } from '$lib/types';
 	import { formatTime } from '$lib/utils';
+
+	const statusLabels: Record<ItemStatus, string> = {
+		todo: 'Todo',
+		voting: 'Voting',
+		finalized: 'Finalized',
+		cancelled: 'Cancelled'
+	};
+
+	const statusColors: Record<ItemStatus, string> = {
+		todo: '#6b7280',
+		voting: '#f59e0b',
+		finalized: '#22c55e',
+		cancelled: '#ef4444'
+	};
 
 	let { item, onsave }: { item: ItineraryItem; onsave?: (updated: ItineraryItem) => void } = $props();
 
@@ -13,6 +27,7 @@
 
 	let editing = $state(false);
 	let savedScrollY = 0;
+	let itemStatus = $state<ItemStatus>('todo');
 
 	// Activity edit fields
 	let actTitle = $state('');
@@ -54,6 +69,13 @@
 		return d.toISOString().split('T')[0];
 	});
 
+	let crMaxPickupDate = $derived.by(() => {
+		if (!crReturnDate) return '';
+		const d = new Date(crReturnDate + 'T00:00:00');
+		d.setDate(d.getDate() - 1);
+		return d.toISOString().split('T')[0];
+	});
+
 	function startEdit() {
 		if (item.type === 'activity') {
 			actTitle = item.title;
@@ -85,6 +107,7 @@
 			crReturnLocation = item.returnLocation;
 			crSameDropoff = item.pickupLocation === item.returnLocation;
 		}
+		itemStatus = item.status;
 		savedScrollY = window.scrollY;
 		document.body.style.position = 'fixed';
 		document.body.style.top = `-${savedScrollY}px`;
@@ -111,13 +134,13 @@
 	function save() {
 		let updated: ItineraryItem;
 		if (item.type === 'activity') {
-			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim() };
+			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim(), status: itemStatus };
 		} else if (item.type === 'flight') {
-			updated = { ...item, airline: flAirline.trim(), flightNumber: flNumber.trim(), date: flDate, departureTime: flDepartureTime, arrivalTime: flArrivalTime, from: flFrom.trim(), to: flTo.trim() };
+			updated = { ...item, airline: flAirline.trim(), flightNumber: flNumber.trim(), date: flDate, departureTime: flDepartureTime, arrivalTime: flArrivalTime, from: flFrom.trim(), to: flTo.trim(), status: itemStatus };
 		} else if (item.type === 'hotel') {
-			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim() };
+			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim(), status: itemStatus };
 		} else {
-			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim() };
+			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim(), status: itemStatus };
 		}
 		onsave?.(updated);
 		unlockScroll();
@@ -164,6 +187,8 @@
 			</svg>
 		</button>
 	</div>
+
+	<span class="status-badge" style="background-color: {statusColors[item.status]}">{statusLabels[item.status]}</span>
 
 	<div class="card-content">
 		{#if item.type === 'activity'}
@@ -229,18 +254,12 @@
 			<div class="modal-body-inner">
 				{#if item.type === 'activity'}
 					<div class="field">
-						<label>Title</label>
+						<label>Title / Location</label>
 						<input type="text" bind:value={actTitle} />
 					</div>
-					<div class="field-row">
-						<div class="field">
-							<label>Date</label>
-							<input type="date" bind:value={actDate} />
-						</div>
-						<div class="field">
-							<label>Location</label>
-							<input type="text" bind:value={actLocation} />
-						</div>
+					<div class="field">
+						<label>Date</label>
+						<input type="date" bind:value={actDate} />
 					</div>
 					<div class="field-row">
 						<div class="field">
@@ -322,7 +341,7 @@
 					<div class="field-row">
 						<div class="field">
 							<label>Pickup Date</label>
-							<input type="date" bind:value={crPickupDate} />
+							<input type="date" bind:value={crPickupDate} max={crMaxPickupDate} />
 						</div>
 						<div class="field">
 							<label>Pickup Time</label>
@@ -350,6 +369,23 @@
 						</div>
 					</div>
 				{/if}
+
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
+				</div>
 			</div>
 			</div>
 
@@ -373,7 +409,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-sm);
-		margin-bottom: var(--space-sm);
 	}
 
 	.card-type svg {
@@ -388,6 +423,20 @@
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--color-text-secondary);
+	}
+
+	.status-badge {
+		display: inline-block;
+		font-size: 0.65rem;
+		font-weight: 700;
+		color: white;
+		padding: 1px 7px;
+		border-radius: var(--radius-full);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		line-height: 1.4;
+		margin-top: 2px;
+		margin-bottom: var(--space-sm);
 	}
 
 	.edit-btn {
@@ -523,8 +572,9 @@
 	}
 
 	.modal-body {
-		padding: var(--space-lg);
+		padding: var(--space-md);
 		overflow-y: auto;
+		overflow-x: hidden;
 		flex: 1 1 0;
 		min-height: 0;
 	}
@@ -536,7 +586,7 @@
 	}
 
 	.modal-footer {
-		padding: var(--space-md) var(--space-lg);
+		padding: var(--space-md);
 		border-top: 1px solid var(--color-border);
 		display: flex;
 		gap: var(--space-sm);
@@ -548,6 +598,7 @@
 		flex-direction: column;
 		gap: var(--space-xs);
 		flex: 1;
+		min-width: 0;
 	}
 
 	.field-row {
@@ -564,6 +615,7 @@
 
 	.modal input {
 		padding: 12px 14px;
+		min-width: 0;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		background: var(--color-bg);
@@ -621,5 +673,43 @@
 		font-size: var(--font-base);
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	.status-picker-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		margin-top: var(--space-sm);
+		padding-top: var(--space-md);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.status-picker-label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.status-picker {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 6px;
+	}
+
+	.status-option {
+		padding: 8px 4px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text-secondary);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s;
+		text-align: center;
+	}
+
+	.status-option:hover:not(.active) {
+		border-color: var(--color-text-muted);
 	}
 </style>

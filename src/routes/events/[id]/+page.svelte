@@ -111,13 +111,17 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-sm);
-		padding-top: var(--space-sm);
-		padding-bottom: var(--space-sm);
+		padding: var(--space-sm) 0;
+		margin-left: calc(-1 * var(--space-md));
+		margin-right: calc(-1 * var(--space-md));
+		padding-left: var(--space-md);
+		padding-right: var(--space-md);
 		margin-bottom: var(--space-md);
 		position: sticky;
 		top: 0;
 		z-index: 10;
 		background: var(--color-bg);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.back-link {
@@ -140,7 +144,7 @@
 	}
 
 	.event-header {
-		margin-bottom: var(--space-xl);
+		margin-bottom: var(--space-md);
 	}
 
 	.header-top {
@@ -206,6 +210,9 @@
 		font-size: var(--font-xl);
 		font-weight: 600;
 		margin-bottom: var(--space-md);
+		text-align: center;
+		padding-bottom: var(--space-sm);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.day-section {
@@ -217,8 +224,6 @@
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: var(--space-sm);
-		padding-bottom: var(--space-xs);
-		border-bottom: 2px solid var(--color-border);
 	}
 
 	.day-label {

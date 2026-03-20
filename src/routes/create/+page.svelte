@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { addEvent } from '$lib/stores/events';
 	import { generateId } from '$lib/utils';
-	import type { EventCategory, ItineraryItem } from '$lib/types';
+	import type { EventCategory, ItineraryItem, ItemStatus } from '$lib/types';
 
 	let title = $state('');
 	let description = $state('');
@@ -16,6 +16,21 @@
 
 	// Itinerary builder state
 	let addingType = $state<ItineraryItem['type'] | null>(null);
+	let itemStatus = $state<ItemStatus>('todo');
+
+	const statusLabels: Record<ItemStatus, string> = {
+		todo: 'Todo',
+		voting: 'Voting',
+		finalized: 'Finalized',
+		cancelled: 'Cancelled'
+	};
+
+	const statusColors: Record<ItemStatus, string> = {
+		todo: '#6b7280',
+		voting: '#f59e0b',
+		finalized: '#22c55e',
+		cancelled: '#ef4444'
+	};
 
 	// Activity form fields
 	let actTitle = $state('');
@@ -26,6 +41,8 @@
 	let actNotes = $state('');
 
 	// Flight form fields
+	let flightTab = $state<'outbound' | 'return'>('outbound');
+	// Outbound
 	let flAirline = $state('');
 	let flNumber = $state('');
 	let flDate = $state('');
@@ -33,6 +50,14 @@
 	let flArrivalTime = $state('');
 	let flFrom = $state('');
 	let flTo = $state('');
+	// Return
+	let flRetAirline = $state('');
+	let flRetNumber = $state('');
+	let flRetDate = $state('');
+	let flRetDepartureTime = $state('');
+	let flRetArrivalTime = $state('');
+	let flRetFrom = $state('');
+	let flRetTo = $state('');
 
 	// Hotel form fields
 	let htName = $state('');
@@ -96,8 +121,11 @@
 	function resetItemForms() {
 		actTitle = ''; actDate = ''; actStartTime = ''; actEndTime = ''; actLocation = ''; actNotes = '';
 		flAirline = ''; flNumber = ''; flDate = ''; flDepartureTime = ''; flArrivalTime = ''; flFrom = ''; flTo = '';
+		flRetAirline = ''; flRetNumber = ''; flRetDate = ''; flRetDepartureTime = ''; flRetArrivalTime = ''; flRetFrom = ''; flRetTo = '';
+		flightTab = 'outbound';
 		htName = ''; htCheckIn = ''; htCheckOut = ''; htLocation = ''; htConfirmation = '';
 		crPickupDate = ''; crPickupTime = ''; crReturnDate = ''; crReturnTime = ''; crPickupLocation = ''; crReturnLocation = ''; crSameDropoff = false;
+		itemStatus = 'todo';
 	}
 
 	function addActivity() {
@@ -110,14 +138,15 @@
 			startTime: actStartTime || '09:00',
 			endTime: actEndTime || '10:00',
 			location: actLocation.trim(),
-			notes: actNotes.trim()
+			notes: actNotes.trim(),
+			status: itemStatus
 		}];
 		cancelAdd();
 	}
 
 	function addFlight() {
 		if (!flAirline.trim() || !flDate) return;
-		itinerary = [...itinerary, {
+		const items: FlightItem[] = [{
 			type: 'flight',
 			id: generateId(),
 			airline: flAirline.trim(),
@@ -126,8 +155,24 @@
 			departureTime: flDepartureTime || '08:00',
 			arrivalTime: flArrivalTime || '11:00',
 			from: flFrom.trim(),
-			to: flTo.trim()
+			to: flTo.trim(),
+			status: itemStatus
 		}];
+		if (flRetAirline.trim() && flRetDate) {
+			items.push({
+				type: 'flight',
+				id: generateId(),
+				airline: flRetAirline.trim(),
+				flightNumber: flRetNumber.trim(),
+				date: flRetDate,
+				departureTime: flRetDepartureTime || '08:00',
+				arrivalTime: flRetArrivalTime || '11:00',
+				from: flRetFrom.trim(),
+				to: flRetTo.trim(),
+				status: itemStatus
+			});
+		}
+		itinerary = [...itinerary, ...items];
 		cancelAdd();
 	}
 
@@ -140,7 +185,8 @@
 			checkInDate: htCheckIn,
 			checkOutDate: htCheckOut || htCheckIn,
 			location: htLocation.trim(),
-			confirmationNumber: htConfirmation.trim()
+			confirmationNumber: htConfirmation.trim(),
+			status: itemStatus
 		}];
 		cancelAdd();
 	}
@@ -155,7 +201,8 @@
 			returnDate: crReturnDate || crPickupDate,
 			returnTime: crReturnTime || '17:00',
 			pickupLocation: crPickupLocation.trim(),
-			returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim()
+			returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim(),
+			status: itemStatus
 		}];
 		cancelAdd();
 	}
@@ -305,6 +352,22 @@
 					<label for="actNotes">Notes</label>
 					<input id="actNotes" type="text" bind:value={actNotes} placeholder="Optional notes" />
 				</div>
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
+				</div>
 				<div class="inline-form-actions">
 					<button type="button" class="btn-add" onclick={addActivity}>Add</button>
 					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
@@ -349,6 +412,22 @@
 						<input id="flArrivalTime" type="time" bind:value={flArrivalTime} />
 					</div>
 				</div>
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
+				</div>
 				<div class="inline-form-actions">
 					<button type="button" class="btn-add" onclick={addFlight}>Add</button>
 					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
@@ -380,6 +459,22 @@
 				<div class="field">
 					<label for="htConfirmation">Confirmation #</label>
 					<input id="htConfirmation" type="text" bind:value={htConfirmation} placeholder="Optional" />
+				</div>
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
 				</div>
 				<div class="inline-form-actions">
 					<button type="button" class="btn-add" onclick={addHotel}>Add</button>
@@ -423,6 +518,22 @@
 					<div class="field">
 						<label for="crReturnTime">Return Time</label>
 						<input id="crReturnTime" type="time" bind:value={crReturnTime} />
+					</div>
+				</div>
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
 					</div>
 				</div>
 				<div class="inline-form-actions">
@@ -695,5 +806,43 @@
 		padding: 0;
 		cursor: pointer;
 		accent-color: var(--color-primary);
+	}
+
+	.status-picker-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		margin-top: var(--space-xs);
+		padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.status-picker-label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-secondary);
+	}
+
+	.status-picker {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 6px;
+	}
+
+	.status-option {
+		padding: 8px 4px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		color: var(--color-text-secondary);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s;
+		text-align: center;
+	}
+
+	.status-option:hover:not(.active) {
+		border-color: var(--color-text-muted);
 	}
 </style>
