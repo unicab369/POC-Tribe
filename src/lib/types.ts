@@ -25,6 +25,14 @@ export interface FlightItem {
 	from: string;
 	to: string;
 	status: ItemStatus;
+	// Optional return flight
+	returnAirline?: string;
+	returnFlightNumber?: string;
+	returnDate?: string;
+	returnDepartureTime?: string;
+	returnArrivalTime?: string;
+	returnFrom?: string;
+	returnTo?: string;
 }
 
 export interface HotelItem {

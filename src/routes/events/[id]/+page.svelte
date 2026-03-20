@@ -88,8 +88,8 @@
 								<span class="day-date">{formatDate(date)}</span>
 							</div>
 							<div class="day-items">
-								{#each dayItems as item (item.id)}
-									<ItineraryItemCard {item} onsave={handleItemSave} />
+								{#each dayItems as entry (entry.item.id + (entry.flightLeg || ''))}
+									<ItineraryItemCard item={entry.item} flightLeg={entry.flightLeg} onsave={handleItemSave} />
 								{/each}
 							</div>
 						</div>

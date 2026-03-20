@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ItineraryItem, ItemStatus } from '$lib/types';
+	import type { FlightLeg } from '$lib/utils';
 	import { formatTime } from '$lib/utils';
 
 	const statusLabels: Record<ItemStatus, string> = {
@@ -16,7 +17,7 @@
 		cancelled: '#ef4444'
 	};
 
-	let { item, onsave }: { item: ItineraryItem; onsave?: (updated: ItineraryItem) => void } = $props();
+	let { item, flightLeg, onsave }: { item: ItineraryItem; flightLeg?: FlightLeg; onsave?: (updated: ItineraryItem) => void } = $props();
 
 	const typeLabels: Record<ItineraryItem['type'], string> = {
 		activity: 'Activity',
@@ -38,6 +39,8 @@
 	let actNotes = $state('');
 
 	// Flight edit fields
+	let flightTab = $state<'outbound' | 'return'>('outbound');
+	// Outbound
 	let flAirline = $state('');
 	let flNumber = $state('');
 	let flDate = $state('');
@@ -45,6 +48,14 @@
 	let flArrivalTime = $state('');
 	let flFrom = $state('');
 	let flTo = $state('');
+	// Return
+	let flRetAirline = $state('');
+	let flRetNumber = $state('');
+	let flRetDate = $state('');
+	let flRetDepartureTime = $state('');
+	let flRetArrivalTime = $state('');
+	let flRetFrom = $state('');
+	let flRetTo = $state('');
 
 	// Hotel edit fields
 	let htName = $state('');
@@ -92,6 +103,14 @@
 			flArrivalTime = item.arrivalTime;
 			flFrom = item.from;
 			flTo = item.to;
+			flRetAirline = item.returnAirline || '';
+			flRetNumber = item.returnFlightNumber || '';
+			flRetDate = item.returnDate || '';
+			flRetDepartureTime = item.returnDepartureTime || '';
+			flRetArrivalTime = item.returnArrivalTime || '';
+			flRetFrom = item.returnFrom || '';
+			flRetTo = item.returnTo || '';
+			flightTab = flightLeg || 'outbound';
 		} else if (item.type === 'hotel') {
 			htName = item.name;
 			htCheckIn = item.checkInDate;
@@ -136,7 +155,24 @@
 		if (item.type === 'activity') {
 			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim(), status: itemStatus };
 		} else if (item.type === 'flight') {
-			updated = { ...item, airline: flAirline.trim(), flightNumber: flNumber.trim(), date: flDate, departureTime: flDepartureTime, arrivalTime: flArrivalTime, from: flFrom.trim(), to: flTo.trim(), status: itemStatus };
+			updated = {
+				...item,
+				airline: flAirline.trim(),
+				flightNumber: flNumber.trim(),
+				date: flDate,
+				departureTime: flDepartureTime,
+				arrivalTime: flArrivalTime,
+				from: flFrom.trim(),
+				to: flTo.trim(),
+				returnAirline: flRetAirline.trim() || undefined,
+				returnFlightNumber: flRetNumber.trim() || undefined,
+				returnDate: flRetDate || undefined,
+				returnDepartureTime: flRetDepartureTime || undefined,
+				returnArrivalTime: flRetArrivalTime || undefined,
+				returnFrom: flRetFrom.trim() || undefined,
+				returnTo: flRetTo.trim() || undefined,
+				status: itemStatus
+			};
 		} else if (item.type === 'hotel') {
 			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim(), status: itemStatus };
 		} else {
@@ -179,7 +215,7 @@
 				<circle cx="16.5" cy="16.5" r="2.5" />
 			</svg>
 		{/if}
-		<span class="type-label">{typeLabels[item.type]}</span>
+		<span class="type-label">{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}</span>
 		<button class="edit-btn" onclick={startEdit} aria-label="Edit">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -204,24 +240,45 @@
 				<p class="item-notes">{item.notes}</p>
 			{/if}
 		{:else if item.type === 'flight'}
-			<h4 class="item-title">{item.airline} {item.flightNumber}</h4>
-			<div class="flight-route">
-				<div class="airport">
-					<span class="airport-code">{item.from}</span>
-					<span class="airport-time">{formatTime(item.departureTime)}</span>
+			{#if flightLeg === 'return'}
+				<h4 class="item-title">{item.returnAirline} {item.returnFlightNumber}</h4>
+				<div class="flight-route">
+					<div class="airport">
+						<span class="airport-code">{item.returnFrom}</span>
+						<span class="airport-time">{formatTime(item.returnDepartureTime || '')}</span>
+					</div>
+					<div class="flight-line">
+						<span class="line"></span>
+						<svg class="plane-icon plane-icon-return" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+						</svg>
+						<span class="line"></span>
+					</div>
+					<div class="airport">
+						<span class="airport-code">{item.returnTo}</span>
+						<span class="airport-time">{formatTime(item.returnArrivalTime || '')}</span>
+					</div>
 				</div>
-				<div class="flight-line">
-					<span class="line"></span>
-					<svg class="plane-icon" viewBox="0 0 24 24" fill="currentColor">
-						<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
-					</svg>
-					<span class="line"></span>
+			{:else}
+				<h4 class="item-title">{item.airline} {item.flightNumber}</h4>
+				<div class="flight-route">
+					<div class="airport">
+						<span class="airport-code">{item.from}</span>
+						<span class="airport-time">{formatTime(item.departureTime)}</span>
+					</div>
+					<div class="flight-line">
+						<span class="line"></span>
+						<svg class="plane-icon" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+						</svg>
+						<span class="line"></span>
+					</div>
+					<div class="airport">
+						<span class="airport-code">{item.to}</span>
+						<span class="airport-time">{formatTime(item.arrivalTime)}</span>
+					</div>
 				</div>
-				<div class="airport">
-					<span class="airport-code">{item.to}</span>
-					<span class="airport-time">{formatTime(item.arrivalTime)}</span>
-				</div>
-			</div>
+			{/if}
 		{:else if item.type === 'hotel'}
 			<h4 class="item-title">{item.name}</h4>
 			<div class="item-details">
@@ -276,40 +333,95 @@
 						<input type="text" bind:value={actNotes} />
 					</div>
 				{:else if item.type === 'flight'}
-					<div class="field-row">
-						<div class="field">
-							<label>Airline</label>
-							<input type="text" bind:value={flAirline} />
-						</div>
-						<div class="field">
-							<label>Flight #</label>
-							<input type="text" bind:value={flNumber} />
-						</div>
+					<div class="flight-tabs">
+						<button
+							type="button"
+							class="flight-tab"
+							class:active={flightTab === 'outbound'}
+							onclick={() => (flightTab = 'outbound')}
+						>
+							Outbound
+						</button>
+						<button
+							type="button"
+							class="flight-tab"
+							class:active={flightTab === 'return'}
+							onclick={() => (flightTab = 'return')}
+						>
+							Return
+						</button>
 					</div>
-					<div class="field">
-						<label>Date</label>
-						<input type="date" bind:value={flDate} />
-					</div>
-					<div class="field-row">
-						<div class="field">
-							<label>From</label>
-							<input type="text" bind:value={flFrom} />
+					{#if flightTab === 'outbound'}
+						<div class="field-row">
+							<div class="field">
+								<label>Airline</label>
+								<input type="text" bind:value={flAirline} />
+							</div>
+							<div class="field">
+								<label>Flight #</label>
+								<input type="text" bind:value={flNumber} />
+							</div>
 						</div>
 						<div class="field">
-							<label>To</label>
-							<input type="text" bind:value={flTo} />
+							<label>Date</label>
+							<input type="date" bind:value={flDate} />
 						</div>
-					</div>
-					<div class="field-row">
+						<div class="field-row">
+							<div class="field">
+								<label>From</label>
+								<input type="text" bind:value={flFrom} />
+							</div>
+							<div class="field">
+								<label>To</label>
+								<input type="text" bind:value={flTo} />
+							</div>
+						</div>
+						<div class="field-row">
+							<div class="field">
+								<label>Departure</label>
+								<input type="time" bind:value={flDepartureTime} />
+							</div>
+							<div class="field">
+								<label>Arrival</label>
+								<input type="time" bind:value={flArrivalTime} />
+							</div>
+						</div>
+					{:else}
+						<div class="field-row">
+							<div class="field">
+								<label>Airline</label>
+								<input type="text" bind:value={flRetAirline} />
+							</div>
+							<div class="field">
+								<label>Flight #</label>
+								<input type="text" bind:value={flRetNumber} />
+							</div>
+						</div>
 						<div class="field">
-							<label>Departure</label>
-							<input type="time" bind:value={flDepartureTime} />
+							<label>Date</label>
+							<input type="date" bind:value={flRetDate} />
 						</div>
-						<div class="field">
-							<label>Arrival</label>
-							<input type="time" bind:value={flArrivalTime} />
+						<div class="field-row">
+							<div class="field">
+								<label>From</label>
+								<input type="text" bind:value={flRetFrom} />
+							</div>
+							<div class="field">
+								<label>To</label>
+								<input type="text" bind:value={flRetTo} />
+							</div>
 						</div>
-					</div>
+						<div class="field-row">
+							<div class="field">
+								<label>Departure</label>
+								<input type="time" bind:value={flRetDepartureTime} />
+							</div>
+							<div class="field">
+								<label>Arrival</label>
+								<input type="time" bind:value={flRetArrivalTime} />
+							</div>
+						</div>
+					{/if}
 				{:else if item.type === 'hotel'}
 					<div class="field">
 						<label>Hotel Name</label>
@@ -536,6 +648,10 @@
 		flex-shrink: 0;
 	}
 
+	.plane-icon-return {
+		transform: rotate(45deg);
+	}
+
 	/* Modal styles */
 	.modal-overlay {
 		position: fixed;
@@ -711,5 +827,30 @@
 
 	.status-option:hover:not(.active) {
 		border-color: var(--color-text-muted);
+	}
+
+	/* Flight tabs */
+	.flight-tabs {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+
+	.flight-tab {
+		padding: 8px;
+		border: none;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.flight-tab.active {
+		background: #3b82f6;
+		color: white;
 	}
 </style>

@@ -81,18 +81,40 @@ function getItemTime(item: ItineraryItem): string {
 	}
 }
 
-export function getItemsForDate(items: ItineraryItem[], date: string): ItineraryItem[] {
-	return items
-		.filter((item) => {
-			switch (item.type) {
-				case 'activity':
-				case 'flight':
-					return item.date === date;
-				case 'hotel':
-					return item.checkInDate === date || item.checkOutDate === date;
-				case 'car-rental':
-					return item.pickupDate === date || item.returnDate === date;
-			}
-		})
-		.sort((a, b) => getItemTime(a).localeCompare(getItemTime(b)));
+export type FlightLeg = 'outbound' | 'return';
+
+export interface DisplayItem {
+	item: ItineraryItem;
+	flightLeg?: FlightLeg;
+}
+
+function getDisplayItemTime(entry: DisplayItem): string {
+	if (entry.item.type === 'flight' && entry.flightLeg === 'return') {
+		return entry.item.returnDepartureTime || '08:00';
+	}
+	return getItemTime(entry.item);
+}
+
+export function getItemsForDate(items: ItineraryItem[], date: string): DisplayItem[] {
+	const entries: DisplayItem[] = [];
+
+	for (const item of items) {
+		switch (item.type) {
+			case 'activity':
+				if (item.date === date) entries.push({ item });
+				break;
+			case 'flight':
+				if (item.date === date) entries.push({ item, flightLeg: 'outbound' });
+				if (item.returnDate && item.returnDate === date) entries.push({ item, flightLeg: 'return' });
+				break;
+			case 'hotel':
+				if (item.checkInDate === date || item.checkOutDate === date) entries.push({ item });
+				break;
+			case 'car-rental':
+				if (item.pickupDate === date || item.returnDate === date) entries.push({ item });
+				break;
+		}
+	}
+
+	return entries.sort((a, b) => getDisplayItemTime(a).localeCompare(getDisplayItemTime(b)));
 }

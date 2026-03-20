@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { addEvent } from '$lib/stores/events';
 	import { generateId } from '$lib/utils';
-	import type { EventCategory, ItineraryItem, ItemStatus } from '$lib/types';
+	import type { EventCategory, FlightItem, ItineraryItem, ItemStatus } from '$lib/types';
 
 	let title = $state('');
 	let description = $state('');
@@ -146,7 +146,7 @@
 
 	function addFlight() {
 		if (!flAirline.trim() || !flDate) return;
-		const items: FlightItem[] = [{
+		const flight: FlightItem = {
 			type: 'flight',
 			id: generateId(),
 			airline: flAirline.trim(),
@@ -157,22 +157,17 @@
 			from: flFrom.trim(),
 			to: flTo.trim(),
 			status: itemStatus
-		}];
+		};
 		if (flRetAirline.trim() && flRetDate) {
-			items.push({
-				type: 'flight',
-				id: generateId(),
-				airline: flRetAirline.trim(),
-				flightNumber: flRetNumber.trim(),
-				date: flRetDate,
-				departureTime: flRetDepartureTime || '08:00',
-				arrivalTime: flRetArrivalTime || '11:00',
-				from: flRetFrom.trim(),
-				to: flRetTo.trim(),
-				status: itemStatus
-			});
+			flight.returnAirline = flRetAirline.trim();
+			flight.returnFlightNumber = flRetNumber.trim();
+			flight.returnDate = flRetDate;
+			flight.returnDepartureTime = flRetDepartureTime || '08:00';
+			flight.returnArrivalTime = flRetArrivalTime || '11:00';
+			flight.returnFrom = flRetFrom.trim();
+			flight.returnTo = flRetTo.trim();
 		}
-		itinerary = [...itinerary, ...items];
+		itinerary = [...itinerary, flight];
 		cancelAdd();
 	}
 
@@ -378,40 +373,95 @@
 				<div class="inline-form-header">
 					<span class="inline-form-title" style="color: #3b82f6">Add Flight</span>
 				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="flAirline">Airline</label>
-						<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" />
-					</div>
-					<div class="field">
-						<label for="flNumber">Flight #</label>
-						<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" />
-					</div>
+				<div class="flight-tabs">
+					<button
+						type="button"
+						class="flight-tab"
+						class:active={flightTab === 'outbound'}
+						onclick={() => (flightTab = 'outbound')}
+					>
+						Outbound
+					</button>
+					<button
+						type="button"
+						class="flight-tab"
+						class:active={flightTab === 'return'}
+						onclick={() => (flightTab = 'return')}
+					>
+						Return
+					</button>
 				</div>
-				<div class="field">
-					<label for="flDate">Date</label>
-					<input id="flDate" type="date" bind:value={flDate} />
-				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="flFrom">From</label>
-						<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" />
+				{#if flightTab === 'outbound'}
+					<div class="field-row">
+						<div class="field">
+							<label for="flAirline">Airline</label>
+							<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" />
+						</div>
+						<div class="field">
+							<label for="flNumber">Flight #</label>
+							<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" />
+						</div>
 					</div>
 					<div class="field">
-						<label for="flTo">To</label>
-						<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" />
+						<label for="flDate">Date</label>
+						<input id="flDate" type="date" bind:value={flDate} />
 					</div>
-				</div>
-				<div class="field-row">
+					<div class="field-row">
+						<div class="field">
+							<label for="flFrom">From</label>
+							<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" />
+						</div>
+						<div class="field">
+							<label for="flTo">To</label>
+							<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" />
+						</div>
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="flDepartureTime">Departure</label>
+							<input id="flDepartureTime" type="time" bind:value={flDepartureTime} />
+						</div>
+						<div class="field">
+							<label for="flArrivalTime">Arrival</label>
+							<input id="flArrivalTime" type="time" bind:value={flArrivalTime} />
+						</div>
+					</div>
+				{:else}
+					<div class="field-row">
+						<div class="field">
+							<label for="flRetAirline">Airline</label>
+							<input id="flRetAirline" type="text" bind:value={flRetAirline} placeholder="e.g. United" />
+						</div>
+						<div class="field">
+							<label for="flRetNumber">Flight #</label>
+							<input id="flRetNumber" type="text" bind:value={flRetNumber} placeholder="e.g. UA 482" />
+						</div>
+					</div>
 					<div class="field">
-						<label for="flDepartureTime">Departure</label>
-						<input id="flDepartureTime" type="time" bind:value={flDepartureTime} />
+						<label for="flRetDate">Date</label>
+						<input id="flRetDate" type="date" bind:value={flRetDate} />
 					</div>
-					<div class="field">
-						<label for="flArrivalTime">Arrival</label>
-						<input id="flArrivalTime" type="time" bind:value={flArrivalTime} />
+					<div class="field-row">
+						<div class="field">
+							<label for="flRetFrom">From</label>
+							<input id="flRetFrom" type="text" bind:value={flRetFrom} placeholder="e.g. SFO" />
+						</div>
+						<div class="field">
+							<label for="flRetTo">To</label>
+							<input id="flRetTo" type="text" bind:value={flRetTo} placeholder="e.g. JFK" />
+						</div>
 					</div>
-				</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="flRetDepartureTime">Departure</label>
+							<input id="flRetDepartureTime" type="time" bind:value={flRetDepartureTime} />
+						</div>
+						<div class="field">
+							<label for="flRetArrivalTime">Arrival</label>
+							<input id="flRetArrivalTime" type="time" bind:value={flRetArrivalTime} />
+						</div>
+					</div>
+				{/if}
 				<div class="status-picker-section">
 					<label class="status-picker-label">Status</label>
 					<div class="status-picker">
@@ -844,5 +894,31 @@
 
 	.status-option:hover:not(.active) {
 		border-color: var(--color-text-muted);
+	}
+
+	/* Flight tabs */
+	.flight-tabs {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+	}
+
+	.flight-tab {
+		padding: 8px;
+		border: none;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.flight-tab.active {
+		background: #3b82f6;
+		color: white;
 	}
 </style>
