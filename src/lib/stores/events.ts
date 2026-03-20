@@ -14,6 +14,12 @@ const mockEvents: Event[] = [
 		location: 'San Francisco to San Diego, CA',
 		category: 'travel',
 		attendees: 4,
+		tribe: [
+			{ id: 't1', name: 'Alex Chen', rsvp: 'going' },
+			{ id: 't2', name: 'Jordan Lee', rsvp: 'going' },
+			{ id: 't3', name: 'Sam Rivera', rsvp: 'going' },
+			{ id: 't4', name: 'Taylor Kim', rsvp: 'maybe' }
+		],
 		itinerary: [
 			{
 				type: 'flight',
@@ -201,6 +207,15 @@ const mockEvents: Event[] = [
 		location: 'Napa Valley, CA',
 		category: 'wedding',
 		attendees: 150,
+		tribe: [
+			{ id: 't5', name: 'Sarah Mitchell', rsvp: 'going' },
+			{ id: 't6', name: 'James Park', rsvp: 'going' },
+			{ id: 't7', name: 'Emma Wilson', rsvp: 'going' },
+			{ id: 't8', name: 'Chris Nguyen', rsvp: 'going' },
+			{ id: 't9', name: 'Mia Johnson', rsvp: 'maybe' },
+			{ id: 't10', name: 'David Brown', rsvp: 'pending' },
+			{ id: 't11', name: 'Olivia Garcia', rsvp: 'not-going' }
+		],
 		itinerary: [
 			{
 				type: 'flight',
@@ -303,6 +318,11 @@ const mockEvents: Event[] = [
 		location: 'Innovation Hub, 3rd Floor',
 		category: 'business',
 		attendees: 85,
+		tribe: [
+			{ id: 't12', name: 'Ryan Torres', rsvp: 'going' },
+			{ id: 't13', name: 'Lisa Chang', rsvp: 'going' },
+			{ id: 't14', name: 'Mark Stevens', rsvp: 'pending' }
+		],
 		itinerary: [
 			{
 				type: 'activity',
@@ -338,6 +358,12 @@ const mockEvents: Event[] = [
 		location: 'The Blue Note Cafe',
 		category: 'music',
 		attendees: 120,
+		tribe: [
+			{ id: 't15', name: 'Nina Patel', rsvp: 'going' },
+			{ id: 't16', name: 'Jake Morrison', rsvp: 'going' },
+			{ id: 't17', name: 'Aisha Rahman', rsvp: 'maybe' },
+			{ id: 't18', name: 'Leo Fernandez', rsvp: 'not-going' }
+		],
 		itinerary: [
 			{
 				type: 'activity',
@@ -359,7 +385,10 @@ function loadEvents(): Event[] {
 	if (!browser) return mockEvents;
 	try {
 		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored) return JSON.parse(stored);
+		if (stored) {
+			const parsed: Event[] = JSON.parse(stored);
+			return parsed.map((e) => ({ ...e, tribe: e.tribe ?? [] }));
+		}
 	} catch {
 		// ignore parse errors
 	}
@@ -386,11 +415,12 @@ let nextId = browser
 	? Math.max(...loadEvents().map((e) => parseInt(e.id) || 0), 0) + 1
 	: 5;
 
-export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees'>) {
+export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees' | 'tribe'>) {
 	const newEvent: Event = {
 		...event,
 		id: String(nextId++),
 		attendees: 0,
+		tribe: [],
 		createdAt: new Date().toISOString()
 	};
 	events.update((list) => [...list, newEvent]);

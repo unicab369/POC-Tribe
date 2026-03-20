@@ -3,11 +3,52 @@
 	import { events, updateItineraryItem } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
 	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate } from '$lib/utils';
-	import type { Event, ItineraryItem } from '$lib/types';
+	import type { Event, ItineraryItem, RSVPStatus } from '$lib/types';
 
 	let event = $derived($events.find((e) => e.id === page.params.id));
 	let dayCount = $derived(event ? getDayCount(event.startDate, event.endDate) : 0);
 	let dates = $derived(event ? getDateRange(event.startDate, event.endDate) : []);
+
+	let showTribe = $state(false);
+	let savedScrollY = 0;
+
+	const rsvpLabels: Record<RSVPStatus, string> = {
+		going: 'Going',
+		maybe: 'Maybe',
+		'not-going': 'Not Going',
+		pending: 'Pending'
+	};
+
+	const rsvpColors: Record<RSVPStatus, string> = {
+		going: '#22c55e',
+		maybe: '#f59e0b',
+		'not-going': '#ef4444',
+		pending: '#6b7280'
+	};
+
+	function openTribe() {
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+		showTribe = true;
+	}
+
+	function closeTribe() {
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
+		showTribe = false;
+	}
+
+	function handleTribeOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) closeTribe();
+	}
 
 	function handleItemSave(updated: ItineraryItem) {
 		if (event) {
@@ -35,6 +76,17 @@
 				</svg>
 			</a>
 			<h1 class="page-title">{event.title}</h1>
+			<button class="tribe-btn" onclick={openTribe} aria-label="View Tribe">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+					<circle cx="9" cy="7" r="4" />
+					<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+					<path d="M16 3.13a4 4 0 0 1 0 7.75" />
+				</svg>
+				{#if event.tribe.length > 0}
+					<span class="tribe-count">{event.tribe.length}</span>
+				{/if}
+			</button>
 		</div>
 
 		<header class="event-header">
@@ -70,7 +122,7 @@
 						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
 						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
 					</svg>
-					<span>{event.attendees} attendees</span>
+					<span>{event.tribe.length} tribe</span>
 				</div>
 			</div>
 			<p class="event-description">{event.description}</p>
@@ -96,6 +148,36 @@
 					{/if}
 				{/each}
 			</section>
+		{/if}
+		{#if showTribe}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={handleTribeOverlayClick} onkeydown={() => {}}>
+				<div class="modal">
+					<div class="modal-header">
+						<h3>Tribe</h3>
+					</div>
+					<div class="modal-body">
+						{#if event.tribe.length === 0}
+							<p class="empty-tribe">No tribe members yet.</p>
+						{:else}
+							<div class="tribe-list">
+								{#each event.tribe as member (member.id)}
+									<div class="tribe-member">
+										<div class="member-avatar">
+											{member.name.split(' ').map((n) => n[0]).join('')}
+										</div>
+										<span class="member-name">{member.name}</span>
+										<span class="rsvp-badge" style="background-color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<div class="modal-footer">
+						<button class="btn-close" onclick={closeTribe}>Close</button>
+					</div>
+				</div>
+			</div>
 		{/if}
 	{:else}
 		<div class="not-found">
@@ -272,5 +354,154 @@
 		border-radius: var(--radius-md);
 		font-weight: 600;
 		text-decoration: none;
+	}
+
+	/* Tribe button in header */
+	.tribe-btn {
+		margin-left: auto;
+		background: none;
+		border: none;
+		color: var(--color-text);
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		border-radius: var(--radius-sm);
+		position: relative;
+	}
+
+	.tribe-btn svg {
+		width: 22px;
+		height: 22px;
+	}
+
+	.tribe-count {
+		font-size: 0.7rem;
+		font-weight: 700;
+		background: var(--color-primary);
+		color: white;
+		min-width: 18px;
+		height: 18px;
+		border-radius: var(--radius-full);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 4px;
+	}
+
+	/* Tribe modal */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: stretch;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: var(--color-surface);
+		width: 100%;
+		max-width: 600px;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.modal-header {
+		padding: var(--space-md) var(--space-md) var(--space-sm);
+		border-bottom: 1px solid var(--color-border);
+		text-align: center;
+	}
+
+	.modal-header h3 {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.modal-body {
+		padding: var(--space-md);
+		overflow-y: auto;
+		flex: 1 1 0;
+		min-height: 0;
+	}
+
+	.modal-footer {
+		padding: var(--space-md);
+		border-top: 1px solid var(--color-border);
+		flex-shrink: 0;
+	}
+
+	.btn-close {
+		width: 100%;
+		padding: 14px;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.empty-tribe {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: var(--space-lg) 0;
+	}
+
+	.tribe-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+
+	.tribe-member {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-sm) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.tribe-member:last-child {
+		border-bottom: none;
+	}
+
+	.member-avatar {
+		width: 36px;
+		height: 36px;
+		border-radius: var(--radius-full);
+		background: var(--color-primary);
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.75rem;
+		font-weight: 700;
+		flex-shrink: 0;
+	}
+
+	.member-name {
+		flex: 1;
+		font-size: var(--font-base);
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	.rsvp-badge {
+		font-size: 0.65rem;
+		font-weight: 700;
+		color: white;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
 	}
 </style>
