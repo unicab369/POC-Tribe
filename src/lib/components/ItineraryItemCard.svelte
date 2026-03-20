@@ -81,6 +81,12 @@
 		return d.toISOString().split('T')[0];
 	});
 
+	// Flight required field logic
+	let flOutFromToRequired = $derived(!!flDate);
+	let flRetFromToRequired = $derived(!!flRetDate);
+	let flOutAllRequired = $derived(itemStatus === 'finalized');
+	let flRetAllRequired = $derived(itemStatus === 'finalized' && !!flRetDate);
+
 	let crMaxPickupDate = $derived.by(() => {
 		if (!crReturnDate) return '';
 		const d = new Date(crReturnDate + 'T00:00:00');
@@ -151,7 +157,30 @@
 		editing = false;
 	}
 
+	let showErrors = $state(false);
+
+	function validateFlight(): boolean {
+		// Outbound: if date is set, from/to are required
+		if (flDate && (!flFrom.trim() || !flTo.trim())) return false;
+		// Finalized: all outbound fields required
+		if (itemStatus === 'finalized') {
+			if (!flAirline.trim() || !flNumber.trim() || !flDate || !flFrom.trim() || !flTo.trim() || !flDepartureTime || !flArrivalTime) return false;
+		}
+		// Return: if date is set, from/to are required
+		if (flRetDate && (!flRetFrom.trim() || !flRetTo.trim())) return false;
+		// Finalized + return date: all return fields required
+		if (itemStatus === 'finalized' && flRetDate) {
+			if (!flRetAirline.trim() || !flRetNumber.trim() || !flRetFrom.trim() || !flRetTo.trim() || !flRetDepartureTime || !flRetArrivalTime) return false;
+		}
+		return true;
+	}
+
 	function save() {
+		if (item.type === 'flight' && !validateFlight()) {
+			showErrors = true;
+			return;
+		}
+		showErrors = false;
 		let updated: ItineraryItem;
 		if (item.type === 'activity') {
 			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim(), status: itemStatus };
@@ -504,9 +533,23 @@
 							<span class="detail-value">{formatTime(item.pickupTime)}</span>
 						</div>
 						<div class="detail-row">
-							<span class="detail-label">Location</span>
+							<span class="detail-label">Pickup Location</span>
 							<span class="detail-value">{item.pickupLocation}</span>
 						</div>
+						{#if item.returnDate}
+							<div class="detail-row">
+								<span class="detail-label">Drop-off Date</span>
+								<span class="detail-value">{formatDate(item.returnDate)}</span>
+							</div>
+							<div class="detail-row">
+								<span class="detail-label">Drop-off Time</span>
+								<span class="detail-value">{formatTime(item.returnTime)}</span>
+							</div>
+							<div class="detail-row">
+								<span class="detail-label">Drop-off Location</span>
+								<span class="detail-value">{item.returnLocation}</span>
+							</div>
+						{/if}
 					{/if}
 				{/if}
 			</div>
@@ -576,47 +619,47 @@
 					{#if flightTab === 'outbound'}
 						<div class="field-row">
 							<div class="field">
-								<label>Airline</label>
-								<input type="text" bind:value={flAirline} />
+								<label class:required={flOutAllRequired}>Airline</label>
+								<input type="text" bind:value={flAirline} class:input-error={showErrors && flOutAllRequired && !flAirline.trim()} />
 							</div>
 							<div class="field">
-								<label>Flight #</label>
-								<input type="text" bind:value={flNumber} />
+								<label class:required={flOutAllRequired}>Flight #</label>
+								<input type="text" bind:value={flNumber} class:input-error={showErrors && flOutAllRequired && !flNumber.trim()} />
 							</div>
 						</div>
 						<div class="field">
-							<label>Date</label>
-							<input type="date" bind:value={flDate} />
+							<label class:required={flOutAllRequired}>Date</label>
+							<input type="date" bind:value={flDate} class:input-error={showErrors && flOutAllRequired && !flDate} />
 						</div>
 						<div class="field-row">
 							<div class="field">
-								<label>From</label>
-								<input type="text" bind:value={flFrom} />
+								<label class:required={flOutFromToRequired || flOutAllRequired}>From</label>
+								<input type="text" bind:value={flFrom} class:input-error={showErrors && (flOutFromToRequired || flOutAllRequired) && !flFrom.trim()} />
 							</div>
 							<div class="field">
-								<label>To</label>
-								<input type="text" bind:value={flTo} />
+								<label class:required={flOutFromToRequired || flOutAllRequired}>To</label>
+								<input type="text" bind:value={flTo} class:input-error={showErrors && (flOutFromToRequired || flOutAllRequired) && !flTo.trim()} />
 							</div>
 						</div>
 						<div class="field-row">
 							<div class="field">
-								<label>Departure</label>
-								<input type="time" bind:value={flDepartureTime} />
+								<label class:required={flOutAllRequired}>Departure</label>
+								<input type="time" bind:value={flDepartureTime} class:input-error={showErrors && flOutAllRequired && !flDepartureTime} />
 							</div>
 							<div class="field">
-								<label>Arrival</label>
-								<input type="time" bind:value={flArrivalTime} />
+								<label class:required={flOutAllRequired}>Arrival</label>
+								<input type="time" bind:value={flArrivalTime} class:input-error={showErrors && flOutAllRequired && !flArrivalTime} />
 							</div>
 						</div>
 					{:else}
 						<div class="field-row">
 							<div class="field">
-								<label>Airline</label>
-								<input type="text" bind:value={flRetAirline} />
+								<label class:required={flRetAllRequired}>Airline</label>
+								<input type="text" bind:value={flRetAirline} class:input-error={showErrors && flRetAllRequired && !flRetAirline.trim()} />
 							</div>
 							<div class="field">
-								<label>Flight #</label>
-								<input type="text" bind:value={flRetNumber} />
+								<label class:required={flRetAllRequired}>Flight #</label>
+								<input type="text" bind:value={flRetNumber} class:input-error={showErrors && flRetAllRequired && !flRetNumber.trim()} />
 							</div>
 						</div>
 						<div class="field">
@@ -625,22 +668,22 @@
 						</div>
 						<div class="field-row">
 							<div class="field">
-								<label>From</label>
-								<input type="text" bind:value={flRetFrom} />
+								<label class:required={flRetFromToRequired || flRetAllRequired}>From</label>
+								<input type="text" bind:value={flRetFrom} class:input-error={showErrors && (flRetFromToRequired || flRetAllRequired) && !flRetFrom.trim()} />
 							</div>
 							<div class="field">
-								<label>To</label>
-								<input type="text" bind:value={flRetTo} />
+								<label class:required={flRetFromToRequired || flRetAllRequired}>To</label>
+								<input type="text" bind:value={flRetTo} class:input-error={showErrors && (flRetFromToRequired || flRetAllRequired) && !flRetTo.trim()} />
 							</div>
 						</div>
 						<div class="field-row">
 							<div class="field">
-								<label>Departure</label>
-								<input type="time" bind:value={flRetDepartureTime} />
+								<label class:required={flRetAllRequired}>Departure</label>
+								<input type="time" bind:value={flRetDepartureTime} class:input-error={showErrors && flRetAllRequired && !flRetDepartureTime} />
 							</div>
 							<div class="field">
-								<label>Arrival</label>
-								<input type="time" bind:value={flRetArrivalTime} />
+								<label class:required={flRetAllRequired}>Arrival</label>
+								<input type="time" bind:value={flRetArrivalTime} class:input-error={showErrors && flRetAllRequired && !flRetArrivalTime} />
 							</div>
 						</div>
 					{/if}
@@ -972,10 +1015,20 @@
 		font-size: var(--font-base);
 		outline: none;
 		transition: border-color 0.2s;
+		color-scheme: dark;
 	}
 
 	.modal input:focus {
 		border-color: var(--color-primary);
+	}
+
+	.modal label.required::after {
+		content: ' *';
+		color: var(--color-danger, #ef4444);
+	}
+
+	.modal input.input-error {
+		border-color: var(--color-danger, #ef4444);
 	}
 
 	.checkbox-row {
@@ -1085,5 +1138,29 @@
 	.flight-tab.active {
 		background: #3b82f6;
 		color: white;
+	}
+
+	/* Detail view */
+	.detail-row {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: var(--space-sm) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.detail-row:last-child {
+		border-bottom: none;
+	}
+
+	.detail-label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.detail-value {
+		font-size: var(--font-base);
+		color: var(--color-text);
 	}
 </style>

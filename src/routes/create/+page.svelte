@@ -75,6 +75,25 @@
 	let crReturnLocation = $state('');
 	let crSameDropoff = $state(false);
 
+	// Flight required field logic
+	let flOutFromToRequired = $derived(!!flDate);
+	let flRetFromToRequired = $derived(!!flRetDate);
+	let flOutAllRequired = $derived(itemStatus === 'finalized');
+	let flRetAllRequired = $derived(itemStatus === 'finalized' && !!flRetDate);
+	let showFlightErrors = $state(false);
+
+	function validateFlight(): boolean {
+		if (flDate && (!flFrom.trim() || !flTo.trim())) return false;
+		if (itemStatus === 'finalized') {
+			if (!flAirline.trim() || !flNumber.trim() || !flDate || !flFrom.trim() || !flTo.trim() || !flDepartureTime || !flArrivalTime) return false;
+		}
+		if (flRetDate && (!flRetFrom.trim() || !flRetTo.trim())) return false;
+		if (itemStatus === 'finalized' && flRetDate) {
+			if (!flRetAirline.trim() || !flRetNumber.trim() || !flRetFrom.trim() || !flRetTo.trim() || !flRetDepartureTime || !flRetArrivalTime) return false;
+		}
+		return true;
+	}
+
 	let crMinReturnDate = $derived.by(() => {
 		if (!crPickupDate) return '';
 		const d = new Date(crPickupDate + 'T00:00:00');
@@ -126,6 +145,7 @@
 		htName = ''; htCheckIn = ''; htCheckOut = ''; htLocation = ''; htConfirmation = '';
 		crPickupDate = ''; crPickupTime = ''; crReturnDate = ''; crReturnTime = ''; crPickupLocation = ''; crReturnLocation = ''; crSameDropoff = false;
 		itemStatus = 'todo';
+		showFlightErrors = false;
 	}
 
 	function addActivity() {
@@ -145,7 +165,12 @@
 	}
 
 	function addFlight() {
-		if (!flAirline.trim() || !flDate) return;
+		if (!validateFlight()) {
+			showFlightErrors = true;
+			return;
+		}
+		showFlightErrors = false;
+		if (!flDate) return;
 		const flight: FlightItem = {
 			type: 'flight',
 			id: generateId(),
@@ -234,8 +259,10 @@
 	};
 </script>
 
-<div class="container">
-	<h1 class="page-title">Create Event</h1>
+<div class="container no-top-padding">
+	<div class="page-top">
+		<h1 class="page-title">Create Event</h1>
+	</div>
 
 	{#if showSuccess}
 		<div class="success-banner">Event created successfully!</div>
@@ -394,47 +421,47 @@
 				{#if flightTab === 'outbound'}
 					<div class="field-row">
 						<div class="field">
-							<label for="flAirline">Airline</label>
-							<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" />
+							<label for="flAirline" class:required={flOutAllRequired}>Airline</label>
+							<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flOutAllRequired && !flAirline.trim()} />
 						</div>
 						<div class="field">
-							<label for="flNumber">Flight #</label>
-							<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" />
+							<label for="flNumber" class:required={flOutAllRequired}>Flight #</label>
+							<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flOutAllRequired && !flNumber.trim()} />
 						</div>
 					</div>
 					<div class="field">
-						<label for="flDate">Date</label>
-						<input id="flDate" type="date" bind:value={flDate} />
+						<label for="flDate" class:required={flOutAllRequired}>Date</label>
+						<input id="flDate" type="date" bind:value={flDate} class:input-error={showFlightErrors && flOutAllRequired && !flDate} />
 					</div>
 					<div class="field-row">
 						<div class="field">
-							<label for="flFrom">From</label>
-							<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" />
+							<label for="flFrom" class:required={flOutFromToRequired || flOutAllRequired}>From</label>
+							<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flFrom.trim()} />
 						</div>
 						<div class="field">
-							<label for="flTo">To</label>
-							<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" />
+							<label for="flTo" class:required={flOutFromToRequired || flOutAllRequired}>To</label>
+							<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flTo.trim()} />
 						</div>
 					</div>
 					<div class="field-row">
 						<div class="field">
-							<label for="flDepartureTime">Departure</label>
-							<input id="flDepartureTime" type="time" bind:value={flDepartureTime} />
+							<label for="flDepartureTime" class:required={flOutAllRequired}>Departure</label>
+							<input id="flDepartureTime" type="time" bind:value={flDepartureTime} class:input-error={showFlightErrors && flOutAllRequired && !flDepartureTime} />
 						</div>
 						<div class="field">
-							<label for="flArrivalTime">Arrival</label>
-							<input id="flArrivalTime" type="time" bind:value={flArrivalTime} />
+							<label for="flArrivalTime" class:required={flOutAllRequired}>Arrival</label>
+							<input id="flArrivalTime" type="time" bind:value={flArrivalTime} class:input-error={showFlightErrors && flOutAllRequired && !flArrivalTime} />
 						</div>
 					</div>
 				{:else}
 					<div class="field-row">
 						<div class="field">
-							<label for="flRetAirline">Airline</label>
-							<input id="flRetAirline" type="text" bind:value={flRetAirline} placeholder="e.g. United" />
+							<label for="flRetAirline" class:required={flRetAllRequired}>Airline</label>
+							<input id="flRetAirline" type="text" bind:value={flRetAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flRetAllRequired && !flRetAirline.trim()} />
 						</div>
 						<div class="field">
-							<label for="flRetNumber">Flight #</label>
-							<input id="flRetNumber" type="text" bind:value={flRetNumber} placeholder="e.g. UA 482" />
+							<label for="flRetNumber" class:required={flRetAllRequired}>Flight #</label>
+							<input id="flRetNumber" type="text" bind:value={flRetNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flRetAllRequired && !flRetNumber.trim()} />
 						</div>
 					</div>
 					<div class="field">
@@ -443,22 +470,22 @@
 					</div>
 					<div class="field-row">
 						<div class="field">
-							<label for="flRetFrom">From</label>
-							<input id="flRetFrom" type="text" bind:value={flRetFrom} placeholder="e.g. SFO" />
+							<label for="flRetFrom" class:required={flRetFromToRequired || flRetAllRequired}>From</label>
+							<input id="flRetFrom" type="text" bind:value={flRetFrom} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetFrom.trim()} />
 						</div>
 						<div class="field">
-							<label for="flRetTo">To</label>
-							<input id="flRetTo" type="text" bind:value={flRetTo} placeholder="e.g. JFK" />
+							<label for="flRetTo" class:required={flRetFromToRequired || flRetAllRequired}>To</label>
+							<input id="flRetTo" type="text" bind:value={flRetTo} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetTo.trim()} />
 						</div>
 					</div>
 					<div class="field-row">
 						<div class="field">
-							<label for="flRetDepartureTime">Departure</label>
-							<input id="flRetDepartureTime" type="time" bind:value={flRetDepartureTime} />
+							<label for="flRetDepartureTime" class:required={flRetAllRequired}>Departure</label>
+							<input id="flRetDepartureTime" type="time" bind:value={flRetDepartureTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetDepartureTime} />
 						</div>
 						<div class="field">
-							<label for="flRetArrivalTime">Arrival</label>
-							<input id="flRetArrivalTime" type="time" bind:value={flRetArrivalTime} />
+							<label for="flRetArrivalTime" class:required={flRetAllRequired}>Arrival</label>
+							<input id="flRetArrivalTime" type="time" bind:value={flRetArrivalTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetArrivalTime} />
 						</div>
 					</div>
 				{/if}
@@ -598,11 +625,28 @@
 </div>
 
 <style>
-	.page-title {
-		font-size: var(--font-2xl);
-		font-weight: 700;
-		padding-top: var(--space-lg);
+	.no-top-padding {
+		padding-top: 0;
+	}
+
+	.page-top {
+		padding: var(--space-sm) 0;
+		margin-left: calc(-1 * var(--space-md));
+		margin-right: calc(-1 * var(--space-md));
+		padding-left: var(--space-md);
+		padding-right: var(--space-md);
 		margin-bottom: var(--space-md);
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		background: var(--color-bg);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.page-title {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
 	}
 
 	.success-banner {
@@ -666,6 +710,7 @@
 		color: var(--color-text);
 		outline: none;
 		transition: border-color 0.2s;
+		color-scheme: dark;
 	}
 
 	input:focus,
@@ -920,5 +965,14 @@
 	.flight-tab.active {
 		background: #3b82f6;
 		color: white;
+	}
+
+	label.required::after {
+		content: ' *';
+		color: var(--color-danger, #ef4444);
+	}
+
+	input.input-error {
+		border-color: var(--color-danger, #ef4444);
 	}
 </style>

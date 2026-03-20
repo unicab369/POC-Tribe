@@ -26,7 +26,7 @@
 	};
 </script>
 
-<div class="container">
+<div class="container no-top-padding">
 	{#if event}
 		<div class="page-top">
 			<a href="/events" class="back-link">
@@ -107,6 +107,10 @@
 </div>
 
 <style>
+	.no-top-padding {
+		padding-top: 0;
+	}
+
 	.page-top {
 		display: flex;
 		align-items: center;
