@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { events } from '$lib/stores/events';
+	import { events, updateItineraryItem } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
 	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate } from '$lib/utils';
-	import type { Event } from '$lib/types';
+	import type { Event, ItineraryItem } from '$lib/types';
 
 	let event = $derived($events.find((e) => e.id === page.params.id));
 	let dayCount = $derived(event ? getDayCount(event.startDate, event.endDate) : 0);
 	let dates = $derived(event ? getDateRange(event.startDate, event.endDate) : []);
+
+	function handleItemSave(updated: ItineraryItem) {
+		if (event) {
+			updateItineraryItem(event.id, updated);
+		}
+	}
 
 	const categoryColors: Record<Event['category'], string> = {
 		social: '#8b5cf6',
@@ -22,12 +28,14 @@
 
 <div class="container">
 	{#if event}
-		<a href="/events" class="back-link">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<polyline points="15 18 9 12 15 6" />
-			</svg>
-			Back to Events
-		</a>
+		<div class="page-top">
+			<a href="/events" class="back-link">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="15 18 9 12 15 6" />
+				</svg>
+			</a>
+			<h1 class="page-title">{event.title}</h1>
+		</div>
 
 		<header class="event-header">
 			<div class="header-top">
@@ -38,7 +46,6 @@
 					<span class="day-badge">{dayCount} days</span>
 				{/if}
 			</div>
-			<h1>{event.title}</h1>
 			<div class="event-meta">
 				<div class="meta-item">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,7 +78,7 @@
 
 		{#if event.itinerary.length > 0}
 			<section class="itinerary-section">
-				<h2>Itinerary</h2>
+				<h2>Agenda</h2>
 				{#each dates as date, i}
 					{@const dayItems = getItemsForDate(event.itinerary, date)}
 					{#if dayItems.length > 0}
@@ -82,7 +89,7 @@
 							</div>
 							<div class="day-items">
 								{#each dayItems as item (item.id)}
-									<ItineraryItemCard {item} />
+									<ItineraryItemCard {item} onsave={handleItemSave} />
 								{/each}
 							</div>
 						</div>
@@ -100,21 +107,36 @@
 </div>
 
 <style>
-	.back-link {
-		display: inline-flex;
+	.page-top {
+		display: flex;
 		align-items: center;
-		gap: 4px;
-		color: var(--color-primary);
-		font-size: var(--font-sm);
-		font-weight: 500;
-		margin-top: var(--space-md);
+		gap: var(--space-sm);
+		padding-top: var(--space-sm);
+		padding-bottom: var(--space-sm);
 		margin-bottom: var(--space-md);
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		background: var(--color-bg);
+	}
+
+	.back-link {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text);
 		text-decoration: none;
 	}
 
 	.back-link svg {
-		width: 18px;
-		height: 18px;
+		width: 22px;
+		height: 22px;
+	}
+
+	.page-title {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
 	}
 
 	.event-header {
@@ -141,7 +163,7 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 		color: var(--color-primary);
-		background: #eef2ff;
+		background: rgba(129, 140, 248, 0.15);
 		padding: 2px 10px;
 		border-radius: var(--radius-full);
 	}
@@ -193,7 +215,7 @@
 	.day-header {
 		display: flex;
 		align-items: center;
-		gap: var(--space-sm);
+		justify-content: space-between;
 		margin-bottom: var(--space-sm);
 		padding-bottom: var(--space-xs);
 		border-bottom: 2px solid var(--color-border);

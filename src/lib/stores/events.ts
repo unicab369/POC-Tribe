@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { Event } from '$lib/types';
+import type { Event, ItineraryItem } from '$lib/types';
 
 const mockEvents: Event[] = [
 	{
@@ -15,7 +15,6 @@ const mockEvents: Event[] = [
 			{
 				type: 'car-rental',
 				id: 'cr1',
-				company: 'Enterprise',
 				pickupDate: '2026-04-20',
 				pickupTime: '09:00',
 				returnDate: '2026-04-24',
@@ -176,7 +175,6 @@ const mockEvents: Event[] = [
 			{
 				type: 'car-rental',
 				id: 'cr2',
-				company: 'Hertz',
 				pickupDate: '2026-05-08',
 				pickupTime: '11:30',
 				returnDate: '2026-05-10',
@@ -322,6 +320,18 @@ export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees'>) {
 
 export function deleteEvent(id: string) {
 	events.update((list) => list.filter((e) => e.id !== id));
+}
+
+export function updateItineraryItem(eventId: string, updatedItem: ItineraryItem) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return {
+				...e,
+				itinerary: e.itinerary.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+			};
+		})
+	);
 }
 
 export function getEventById(id: string): Event | undefined {

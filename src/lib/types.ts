@@ -36,7 +36,6 @@ export interface HotelItem {
 export interface CarRentalItem {
 	type: 'car-rental';
 	id: string;
-	company: string;
 	pickupDate: string;
 	pickupTime: string;
 	returnDate: string;

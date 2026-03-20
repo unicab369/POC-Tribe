@@ -42,13 +42,20 @@
 	let htConfirmation = $state('');
 
 	// Car rental form fields
-	let crCompany = $state('');
 	let crPickupDate = $state('');
 	let crPickupTime = $state('');
 	let crReturnDate = $state('');
 	let crReturnTime = $state('');
 	let crPickupLocation = $state('');
 	let crReturnLocation = $state('');
+	let crSameDropoff = $state(false);
+
+	let crMinReturnDate = $derived.by(() => {
+		if (!crPickupDate) return '';
+		const d = new Date(crPickupDate + 'T00:00:00');
+		d.setDate(d.getDate() + 1);
+		return d.toISOString().split('T')[0];
+	});
 
 	function validate(): boolean {
 		const newErrors: Record<string, string> = {};
@@ -90,7 +97,7 @@
 		actTitle = ''; actDate = ''; actStartTime = ''; actEndTime = ''; actLocation = ''; actNotes = '';
 		flAirline = ''; flNumber = ''; flDate = ''; flDepartureTime = ''; flArrivalTime = ''; flFrom = ''; flTo = '';
 		htName = ''; htCheckIn = ''; htCheckOut = ''; htLocation = ''; htConfirmation = '';
-		crCompany = ''; crPickupDate = ''; crPickupTime = ''; crReturnDate = ''; crReturnTime = ''; crPickupLocation = ''; crReturnLocation = '';
+		crPickupDate = ''; crPickupTime = ''; crReturnDate = ''; crReturnTime = ''; crPickupLocation = ''; crReturnLocation = ''; crSameDropoff = false;
 	}
 
 	function addActivity() {
@@ -139,17 +146,16 @@
 	}
 
 	function addCarRental() {
-		if (!crCompany.trim() || !crPickupDate) return;
+		if (!crPickupLocation.trim() || !crPickupDate) return;
 		itinerary = [...itinerary, {
 			type: 'car-rental',
 			id: generateId(),
-			company: crCompany.trim(),
 			pickupDate: crPickupDate,
 			pickupTime: crPickupTime || '09:00',
 			returnDate: crReturnDate || crPickupDate,
 			returnTime: crReturnTime || '17:00',
 			pickupLocation: crPickupLocation.trim(),
-			returnLocation: crReturnLocation.trim()
+			returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim()
 		}];
 		cancelAdd();
 	}
@@ -167,7 +173,7 @@
 			case 'hotel':
 				return `${item.name} — ${item.checkInDate} to ${item.checkOutDate}`;
 			case 'car-rental':
-				return `${item.company} — ${item.pickupDate} to ${item.returnDate}`;
+				return `${item.pickupLocation} — ${item.pickupDate} to ${item.returnDate}`;
 		}
 	}
 
@@ -242,7 +248,7 @@
 		</div>
 
 		<!-- Itinerary Builder -->
-		<div class="section-title">Itinerary</div>
+		<div class="section-title">Agenda</div>
 
 		{#if itinerary.length > 0}
 			<div class="itinerary-list">
@@ -258,7 +264,7 @@
 
 		{#if addingType === null}
 			<div class="add-item-section">
-				<p class="add-label">Add Itinerary Item</p>
+				<p class="add-label">Add Agenda Item</p>
 				<div class="type-picker">
 					<button type="button" class="type-btn activity" onclick={() => (addingType = 'activity')}>Activity</button>
 					<button type="button" class="type-btn flight" onclick={() => (addingType = 'flight')}>Flight</button>
@@ -386,8 +392,8 @@
 					<span class="inline-form-title" style="color: #22c55e">Add Car Rental</span>
 				</div>
 				<div class="field">
-					<label for="crCompany">Company</label>
-					<input id="crCompany" type="text" bind:value={crCompany} placeholder="e.g. Enterprise" />
+					<label for="crPickupLocation">Pickup Location</label>
+					<input id="crPickupLocation" type="text" bind:value={crPickupLocation} placeholder="Pickup location" />
 				</div>
 				<div class="field-row">
 					<div class="field">
@@ -399,23 +405,25 @@
 						<input id="crPickupTime" type="time" bind:value={crPickupTime} />
 					</div>
 				</div>
-				<div class="field">
-					<label for="crPickupLocation">Pickup Location</label>
-					<input id="crPickupLocation" type="text" bind:value={crPickupLocation} placeholder="Pickup location" />
-				</div>
+				<label class="checkbox-row">
+					<input type="checkbox" bind:checked={crSameDropoff} />
+					<span>Same drop-off location</span>
+				</label>
+				{#if !crSameDropoff}
+					<div class="field">
+						<label for="crReturnLocation">Return Location</label>
+						<input id="crReturnLocation" type="text" bind:value={crReturnLocation} placeholder="Return location" />
+					</div>
+				{/if}
 				<div class="field-row">
 					<div class="field">
 						<label for="crReturnDate">Return Date</label>
-						<input id="crReturnDate" type="date" bind:value={crReturnDate} />
+						<input id="crReturnDate" type="date" bind:value={crReturnDate} min={crMinReturnDate} />
 					</div>
 					<div class="field">
 						<label for="crReturnTime">Return Time</label>
 						<input id="crReturnTime" type="time" bind:value={crReturnTime} />
 					</div>
-				</div>
-				<div class="field">
-					<label for="crReturnLocation">Return Location</label>
-					<input id="crReturnLocation" type="text" bind:value={crReturnLocation} placeholder="Return location" />
 				</div>
 				<div class="inline-form-actions">
 					<button type="button" class="btn-add" onclick={addCarRental}>Add</button>
@@ -618,7 +626,7 @@
 
 	.type-btn:hover {
 		border-style: solid;
-		background: #f8f9fa;
+		background: var(--color-bg);
 	}
 
 	.inline-form {
@@ -628,7 +636,7 @@
 		padding: var(--space-md);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
-		background: #fafbfc;
+		background: var(--color-surface);
 	}
 
 	.inline-form-header {
@@ -670,5 +678,22 @@
 		color: var(--color-text-secondary);
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	.checkbox-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		font-size: var(--font-sm);
+		color: var(--color-text-secondary);
+		cursor: pointer;
+	}
+
+	.checkbox-row input[type='checkbox'] {
+		width: 16px;
+		height: 16px;
+		padding: 0;
+		cursor: pointer;
+		accent-color: var(--color-primary);
 	}
 </style>

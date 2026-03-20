@@ -55,7 +55,7 @@
 			</div>
 			<div class="settings-item">
 				<span>Dark Mode</span>
-				<span class="settings-value">Off</span>
+				<span class="settings-value">On</span>
 			</div>
 			<div class="settings-item">
 				<span>Language</span>

@@ -65,7 +65,7 @@
 						<line x1="3" y1="12" x2="3.01" y2="12" />
 						<line x1="3" y1="18" x2="3.01" y2="18" />
 					</svg>
-					<span>{event.itinerary.length} itinerary item{event.itinerary.length === 1 ? '' : 's'}</span>
+					<span>{event.itinerary.length} agenda item{event.itinerary.length === 1 ? '' : 's'}</span>
 				</div>
 			{/if}
 		</div>
@@ -111,7 +111,7 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 		color: var(--color-primary);
-		background: #eef2ff;
+		background: rgba(129, 140, 248, 0.15);
 		padding: 2px 10px;
 		border-radius: var(--radius-full);
 	}

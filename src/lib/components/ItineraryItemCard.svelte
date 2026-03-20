@@ -2,18 +2,134 @@
 	import type { ItineraryItem } from '$lib/types';
 	import { formatTime } from '$lib/utils';
 
-	let { item }: { item: ItineraryItem } = $props();
+	let { item, onsave }: { item: ItineraryItem; onsave?: (updated: ItineraryItem) => void } = $props();
 
-	const typeConfig: Record<ItineraryItem['type'], { label: string; color: string }> = {
-		activity: { label: 'Activity', color: '#8b5cf6' },
-		flight: { label: 'Flight', color: '#3b82f6' },
-		hotel: { label: 'Hotel', color: '#f59e0b' },
-		'car-rental': { label: 'Car Rental', color: '#22c55e' }
+	const typeLabels: Record<ItineraryItem['type'], string> = {
+		activity: 'Activity',
+		flight: 'Flight',
+		hotel: 'Accommodation',
+		'car-rental': 'Car Rental'
 	};
 
-	let config = $derived(typeConfig[item.type]);
+	let editing = $state(false);
+	let savedScrollY = 0;
+
+	// Activity edit fields
+	let actTitle = $state('');
+	let actDate = $state('');
+	let actStartTime = $state('');
+	let actEndTime = $state('');
+	let actLocation = $state('');
+	let actNotes = $state('');
+
+	// Flight edit fields
+	let flAirline = $state('');
+	let flNumber = $state('');
+	let flDate = $state('');
+	let flDepartureTime = $state('');
+	let flArrivalTime = $state('');
+	let flFrom = $state('');
+	let flTo = $state('');
+
+	// Hotel edit fields
+	let htName = $state('');
+	let htCheckIn = $state('');
+	let htCheckOut = $state('');
+	let htLocation = $state('');
+	let htConfirmation = $state('');
+
+	// Car rental edit fields
+	let crPickupDate = $state('');
+	let crPickupTime = $state('');
+	let crReturnDate = $state('');
+	let crReturnTime = $state('');
+	let crPickupLocation = $state('');
+	let crReturnLocation = $state('');
+	let crSameDropoff = $state(false);
+
+	let crMinReturnDate = $derived.by(() => {
+		if (!crPickupDate) return '';
+		const d = new Date(crPickupDate + 'T00:00:00');
+		d.setDate(d.getDate() + 1);
+		return d.toISOString().split('T')[0];
+	});
+
+	function startEdit() {
+		if (item.type === 'activity') {
+			actTitle = item.title;
+			actDate = item.date;
+			actStartTime = item.startTime;
+			actEndTime = item.endTime;
+			actLocation = item.location;
+			actNotes = item.notes;
+		} else if (item.type === 'flight') {
+			flAirline = item.airline;
+			flNumber = item.flightNumber;
+			flDate = item.date;
+			flDepartureTime = item.departureTime;
+			flArrivalTime = item.arrivalTime;
+			flFrom = item.from;
+			flTo = item.to;
+		} else if (item.type === 'hotel') {
+			htName = item.name;
+			htCheckIn = item.checkInDate;
+			htCheckOut = item.checkOutDate;
+			htLocation = item.location;
+			htConfirmation = item.confirmationNumber;
+		} else if (item.type === 'car-rental') {
+			crPickupDate = item.pickupDate;
+			crPickupTime = item.pickupTime;
+			crReturnDate = item.returnDate;
+			crReturnTime = item.returnTime;
+			crPickupLocation = item.pickupLocation;
+			crReturnLocation = item.returnLocation;
+			crSameDropoff = item.pickupLocation === item.returnLocation;
+		}
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+		editing = true;
+	}
+
+	function unlockScroll() {
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
+	}
+
+	function cancel() {
+		unlockScroll();
+		editing = false;
+	}
+
+	function save() {
+		let updated: ItineraryItem;
+		if (item.type === 'activity') {
+			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim() };
+		} else if (item.type === 'flight') {
+			updated = { ...item, airline: flAirline.trim(), flightNumber: flNumber.trim(), date: flDate, departureTime: flDepartureTime, arrivalTime: flArrivalTime, from: flFrom.trim(), to: flTo.trim() };
+		} else if (item.type === 'hotel') {
+			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim() };
+		} else {
+			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim() };
+		}
+		onsave?.(updated);
+		unlockScroll();
+		editing = false;
+	}
+
+	function handleOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) cancel();
+	}
 </script>
 
+<!-- Card (read-only) -->
 <div class="itinerary-card">
 	<div class="card-type">
 		{#if item.type === 'activity'}
@@ -40,7 +156,13 @@
 				<circle cx="16.5" cy="16.5" r="2.5" />
 			</svg>
 		{/if}
-		<span class="type-label">{config.label}</span>
+		<span class="type-label">{typeLabels[item.type]}</span>
+		<button class="edit-btn" onclick={startEdit} aria-label="Edit">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+				<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+			</svg>
+		</button>
 	</div>
 
 	<div class="card-content">
@@ -84,7 +206,6 @@
 				<p class="item-notes">Confirmation: {item.confirmationNumber}</p>
 			{/if}
 		{:else if item.type === 'car-rental'}
-			<h4 class="item-title">{item.company}</h4>
 			<div class="item-details">
 				<span>Pick up: {formatTime(item.pickupTime)} at {item.pickupLocation}</span>
 			</div>
@@ -94,6 +215,151 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Edit Modal -->
+{#if editing}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-overlay" onclick={handleOverlayClick} onkeydown={() => {}}>
+		<div class="modal">
+			<div class="modal-header">
+				<h3>Edit {typeLabels[item.type]}</h3>
+			</div>
+
+			<div class="modal-body">
+			<div class="modal-body-inner">
+				{#if item.type === 'activity'}
+					<div class="field">
+						<label>Title</label>
+						<input type="text" bind:value={actTitle} />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>Date</label>
+							<input type="date" bind:value={actDate} />
+						</div>
+						<div class="field">
+							<label>Location</label>
+							<input type="text" bind:value={actLocation} />
+						</div>
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>Start Time</label>
+							<input type="time" bind:value={actStartTime} />
+						</div>
+						<div class="field">
+							<label>End Time</label>
+							<input type="time" bind:value={actEndTime} />
+						</div>
+					</div>
+					<div class="field">
+						<label>Notes</label>
+						<input type="text" bind:value={actNotes} />
+					</div>
+				{:else if item.type === 'flight'}
+					<div class="field-row">
+						<div class="field">
+							<label>Airline</label>
+							<input type="text" bind:value={flAirline} />
+						</div>
+						<div class="field">
+							<label>Flight #</label>
+							<input type="text" bind:value={flNumber} />
+						</div>
+					</div>
+					<div class="field">
+						<label>Date</label>
+						<input type="date" bind:value={flDate} />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>From</label>
+							<input type="text" bind:value={flFrom} />
+						</div>
+						<div class="field">
+							<label>To</label>
+							<input type="text" bind:value={flTo} />
+						</div>
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>Departure</label>
+							<input type="time" bind:value={flDepartureTime} />
+						</div>
+						<div class="field">
+							<label>Arrival</label>
+							<input type="time" bind:value={flArrivalTime} />
+						</div>
+					</div>
+				{:else if item.type === 'hotel'}
+					<div class="field">
+						<label>Hotel Name</label>
+						<input type="text" bind:value={htName} />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>Check-in</label>
+							<input type="date" bind:value={htCheckIn} />
+						</div>
+						<div class="field">
+							<label>Check-out</label>
+							<input type="date" bind:value={htCheckOut} />
+						</div>
+					</div>
+					<div class="field">
+						<label>Location</label>
+						<input type="text" bind:value={htLocation} />
+					</div>
+					<div class="field">
+						<label>Confirmation #</label>
+						<input type="text" bind:value={htConfirmation} />
+					</div>
+				{:else if item.type === 'car-rental'}
+					<div class="field">
+						<label>Pickup Location</label>
+						<input type="text" bind:value={crPickupLocation} />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label>Pickup Date</label>
+							<input type="date" bind:value={crPickupDate} />
+						</div>
+						<div class="field">
+							<label>Pickup Time</label>
+							<input type="time" bind:value={crPickupTime} />
+						</div>
+					</div>
+					<label class="checkbox-row">
+						<input type="checkbox" bind:checked={crSameDropoff} />
+						<span>Same drop-off location</span>
+					</label>
+					{#if !crSameDropoff}
+						<div class="field">
+							<label>Return Location</label>
+							<input type="text" bind:value={crReturnLocation} />
+						</div>
+					{/if}
+					<div class="field-row">
+						<div class="field">
+							<label>Return Date</label>
+							<input type="date" bind:value={crReturnDate} min={crMinReturnDate} />
+						</div>
+						<div class="field">
+							<label>Return Time</label>
+							<input type="time" bind:value={crReturnTime} />
+						</div>
+					</div>
+				{/if}
+			</div>
+			</div>
+
+			<div class="modal-footer">
+				<button class="btn-save" onclick={save}>Save</button>
+				<button class="btn-cancel" onclick={cancel}>Cancel</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.itinerary-card {
@@ -122,6 +388,28 @@
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--color-text-secondary);
+	}
+
+	.edit-btn {
+		margin-left: auto;
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+		transition: color 0.2s;
+	}
+
+	.edit-btn:hover {
+		color: var(--color-primary);
+	}
+
+	.edit-btn svg {
+		width: 16px;
+		height: 16px;
 	}
 
 	.card-content {
@@ -197,5 +485,141 @@
 		height: 18px;
 		color: var(--color-text-muted);
 		flex-shrink: 0;
+	}
+
+	/* Modal styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: stretch;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: var(--color-surface);
+		width: 100%;
+		max-width: 600px;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.modal-header {
+		padding: var(--space-md) var(--space-md) var(--space-sm);
+		border-bottom: 1px solid var(--color-border);
+		text-align: center;
+	}
+
+	.modal-header h3 {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.modal-body {
+		padding: var(--space-lg);
+		overflow-y: auto;
+		flex: 1 1 0;
+		min-height: 0;
+	}
+
+	.modal-body-inner {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+
+	.modal-footer {
+		padding: var(--space-md) var(--space-lg);
+		border-top: 1px solid var(--color-border);
+		display: flex;
+		gap: var(--space-sm);
+		flex-shrink: 0;
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		flex: 1;
+	}
+
+	.field-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-md);
+	}
+
+	.modal label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.modal input {
+		padding: 12px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-base);
+		outline: none;
+		transition: border-color 0.2s;
+	}
+
+	.modal input:focus {
+		border-color: var(--color-primary);
+	}
+
+	.checkbox-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		font-size: var(--font-base);
+		color: var(--color-text-secondary);
+		cursor: pointer;
+	}
+
+	.checkbox-row input[type='checkbox'] {
+		width: 18px;
+		height: 18px;
+		padding: 0;
+		cursor: pointer;
+		accent-color: var(--color-primary);
+	}
+
+	.btn-save {
+		flex: 1;
+		padding: 14px;
+		background: var(--color-primary);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.btn-save:hover {
+		background: var(--color-primary-dark);
+	}
+
+	.btn-cancel {
+		flex: 1;
+		padding: 14px;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
 	}
 </style>

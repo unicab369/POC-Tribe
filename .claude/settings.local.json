@@ -6,7 +6,8 @@
       "WebFetch(domain:svelte.dev)",
       "Bash(npx sv create:*)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(xxd:*)"
     ]
   }
 }
