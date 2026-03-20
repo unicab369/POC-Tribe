@@ -82,15 +82,20 @@ function getItemTime(item: ItineraryItem): string {
 }
 
 export type FlightLeg = 'outbound' | 'return';
+export type CarRentalLeg = 'pickup' | 'dropoff';
 
 export interface DisplayItem {
 	item: ItineraryItem;
 	flightLeg?: FlightLeg;
+	carRentalLeg?: CarRentalLeg;
 }
 
 function getDisplayItemTime(entry: DisplayItem): string {
 	if (entry.item.type === 'flight' && entry.flightLeg === 'return') {
 		return entry.item.returnDepartureTime || '08:00';
+	}
+	if (entry.item.type === 'car-rental' && entry.carRentalLeg === 'dropoff') {
+		return entry.item.returnTime;
 	}
 	return getItemTime(entry.item);
 }
@@ -111,7 +116,8 @@ export function getItemsForDate(items: ItineraryItem[], date: string): DisplayIt
 				if (item.checkInDate === date || item.checkOutDate === date) entries.push({ item });
 				break;
 			case 'car-rental':
-				if (item.pickupDate === date || item.returnDate === date) entries.push({ item });
+				if (item.pickupDate === date) entries.push({ item, carRentalLeg: 'pickup' });
+				if (item.returnDate === date) entries.push({ item, carRentalLeg: 'dropoff' });
 				break;
 		}
 	}

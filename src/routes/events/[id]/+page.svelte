@@ -89,7 +89,7 @@
 							</div>
 							<div class="day-items">
 								{#each dayItems as entry (entry.item.id + (entry.flightLeg || ''))}
-									<ItineraryItemCard item={entry.item} flightLeg={entry.flightLeg} onsave={handleItemSave} />
+									<ItineraryItemCard item={entry.item} flightLeg={entry.flightLeg} carRentalLeg={entry.carRentalLeg} onsave={handleItemSave} />
 								{/each}
 							</div>
 						</div>

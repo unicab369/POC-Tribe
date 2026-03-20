@@ -1,5 +1,8 @@
 import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
 import type { Event, ItineraryItem } from '$lib/types';
+
+const STORAGE_KEY = 'tribe-events';
 
 const mockEvents: Event[] = [
 	{
@@ -352,9 +355,36 @@ const mockEvents: Event[] = [
 	}
 ];
 
-export const events = writable<Event[]>(mockEvents);
+function loadEvents(): Event[] {
+	if (!browser) return mockEvents;
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored) return JSON.parse(stored);
+	} catch {
+		// ignore parse errors
+	}
+	return mockEvents;
+}
 
-let nextId = 5;
+function saveEvents(eventList: Event[]) {
+	if (!browser) return;
+	try {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(eventList));
+	} catch {
+		// ignore storage errors
+	}
+}
+
+export const events = writable<Event[]>(loadEvents());
+
+// Persist on every change
+events.subscribe((value) => {
+	saveEvents(value);
+});
+
+let nextId = browser
+	? Math.max(...loadEvents().map((e) => parseInt(e.id) || 0), 0) + 1
+	: 5;
 
 export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees'>) {
 	const newEvent: Event = {

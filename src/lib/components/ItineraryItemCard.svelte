@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ItineraryItem, ItemStatus } from '$lib/types';
-	import type { FlightLeg } from '$lib/utils';
-	import { formatTime } from '$lib/utils';
+	import type { FlightLeg, CarRentalLeg } from '$lib/utils';
+	import { formatTime, formatDate } from '$lib/utils';
 
 	const statusLabels: Record<ItemStatus, string> = {
 		todo: 'Todo',
@@ -17,7 +17,7 @@
 		cancelled: '#ef4444'
 	};
 
-	let { item, flightLeg, onsave }: { item: ItineraryItem; flightLeg?: FlightLeg; onsave?: (updated: ItineraryItem) => void } = $props();
+	let { item, flightLeg, carRentalLeg, onsave }: { item: ItineraryItem; flightLeg?: FlightLeg; carRentalLeg?: CarRentalLeg; onsave?: (updated: ItineraryItem) => void } = $props();
 
 	const typeLabels: Record<ItineraryItem['type'], string> = {
 		activity: 'Activity',
@@ -27,6 +27,7 @@
 	};
 
 	let editing = $state(false);
+	let viewing = $state(false);
 	let savedScrollY = 0;
 	let itemStatus = $state<ItemStatus>('todo');
 
@@ -186,10 +187,79 @@
 	function handleOverlayClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) cancel();
 	}
+
+	function lockScroll() {
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+	}
+
+	function startView() {
+		lockScroll();
+		viewing = true;
+	}
+
+	function closeView() {
+		unlockScroll();
+		viewing = false;
+	}
+
+	function handleViewOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) closeView();
+	}
+
+	function openEditFromView() {
+		viewing = false;
+		// scroll is already locked, populate edit fields
+		if (item.type === 'activity') {
+			actTitle = item.title;
+			actDate = item.date;
+			actStartTime = item.startTime;
+			actEndTime = item.endTime;
+			actLocation = item.location;
+			actNotes = item.notes;
+		} else if (item.type === 'flight') {
+			flAirline = item.airline;
+			flNumber = item.flightNumber;
+			flDate = item.date;
+			flDepartureTime = item.departureTime;
+			flArrivalTime = item.arrivalTime;
+			flFrom = item.from;
+			flTo = item.to;
+			flRetAirline = item.returnAirline || '';
+			flRetNumber = item.returnFlightNumber || '';
+			flRetDate = item.returnDate || '';
+			flRetDepartureTime = item.returnDepartureTime || '';
+			flRetArrivalTime = item.returnArrivalTime || '';
+			flRetFrom = item.returnFrom || '';
+			flRetTo = item.returnTo || '';
+			flightTab = flightLeg || 'outbound';
+		} else if (item.type === 'hotel') {
+			htName = item.name;
+			htCheckIn = item.checkInDate;
+			htCheckOut = item.checkOutDate;
+			htLocation = item.location;
+			htConfirmation = item.confirmationNumber;
+		} else if (item.type === 'car-rental') {
+			crPickupDate = item.pickupDate;
+			crPickupTime = item.pickupTime;
+			crReturnDate = item.returnDate;
+			crReturnTime = item.returnTime;
+			crPickupLocation = item.pickupLocation;
+			crReturnLocation = item.returnLocation;
+			crSameDropoff = item.pickupLocation === item.returnLocation;
+		}
+		itemStatus = item.status;
+		editing = true;
+	}
 </script>
 
 <!-- Card (read-only) -->
-<div class="itinerary-card">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="itinerary-card" onclick={startView} onkeydown={() => {}}>
 	<div class="card-type">
 		{#if item.type === 'activity'}
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -197,7 +267,7 @@
 				<polyline points="12 6 12 12 16 14" />
 			</svg>
 		{:else if item.type === 'flight'}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<svg class={flightLeg === 'return' ? 'icon-return' : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
 			</svg>
 		{:else if item.type === 'hotel'}
@@ -209,14 +279,24 @@
 				<path d="M9 21v-4h6v4" />
 			</svg>
 		{:else if item.type === 'car-rental'}
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h3" />
-				<circle cx="6.5" cy="16.5" r="2.5" />
-				<circle cx="16.5" cy="16.5" r="2.5" />
-			</svg>
+			{#if carRentalLeg === 'dropoff'}
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h3" />
+					<circle cx="6.5" cy="16.5" r="2.5" />
+					<circle cx="16.5" cy="16.5" r="2.5" />
+					<path d="M12 1v5" />
+					<path d="M10 4l2 2 2-2" />
+				</svg>
+			{:else}
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h3" />
+					<circle cx="6.5" cy="16.5" r="2.5" />
+					<circle cx="16.5" cy="16.5" r="2.5" />
+				</svg>
+			{/if}
 		{/if}
-		<span class="type-label">{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}</span>
-		<button class="edit-btn" onclick={startEdit} aria-label="Edit">
+		<span class="type-label">{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}{#if item.type === 'car-rental' && carRentalLeg}{carRentalLeg === 'pickup' ? ' · Pickup' : ' · Drop-off'}{/if}</span>
+		<button class="edit-btn" onclick={(e) => { e.stopPropagation(); startEdit(); }} aria-label="Edit">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
 				<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -288,15 +368,157 @@
 				<p class="item-notes">Confirmation: {item.confirmationNumber}</p>
 			{/if}
 		{:else if item.type === 'car-rental'}
-			<div class="item-details">
-				<span>Pick up: {formatTime(item.pickupTime)} at {item.pickupLocation}</span>
-			</div>
-			<div class="item-details">
-				<span>Return: {formatTime(item.returnTime)} at {item.returnLocation}</span>
-			</div>
+			{#if carRentalLeg === 'dropoff'}
+				<div class="item-details">
+					<span>Drop-off: {formatTime(item.returnTime)} at {item.returnLocation}</span>
+				</div>
+			{:else}
+				<div class="item-details">
+					<span>Pickup: {formatTime(item.pickupTime)} at {item.pickupLocation}</span>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
+
+<!-- Detail View Modal -->
+{#if viewing}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-overlay" onclick={handleViewOverlayClick} onkeydown={() => {}}>
+		<div class="modal">
+			<div class="modal-header">
+				<h3>{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}{#if item.type === 'car-rental' && carRentalLeg}{carRentalLeg === 'pickup' ? ' · Pickup' : ' · Drop-off'}{/if}</h3>
+			</div>
+
+			<div class="modal-body">
+			<div class="modal-body-inner">
+				<span class="status-badge" style="background-color: {statusColors[item.status]}">{statusLabels[item.status]}</span>
+
+				{#if item.type === 'activity'}
+					<div class="detail-row">
+						<span class="detail-label">Title</span>
+						<span class="detail-value">{item.title}</span>
+					</div>
+					<div class="detail-row">
+						<span class="detail-label">Date</span>
+						<span class="detail-value">{formatDate(item.date)}</span>
+					</div>
+					<div class="detail-row">
+						<span class="detail-label">Time</span>
+						<span class="detail-value">{formatTime(item.startTime)} – {formatTime(item.endTime)}</span>
+					</div>
+					{#if item.location}
+						<div class="detail-row">
+							<span class="detail-label">Location</span>
+							<span class="detail-value">{item.location}</span>
+						</div>
+					{/if}
+					{#if item.notes}
+						<div class="detail-row">
+							<span class="detail-label">Notes</span>
+							<span class="detail-value">{item.notes}</span>
+						</div>
+					{/if}
+				{:else if item.type === 'flight'}
+					{#if flightLeg === 'return'}
+						<div class="detail-row">
+							<span class="detail-label">Airline</span>
+							<span class="detail-value">{item.returnAirline} {item.returnFlightNumber}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Date</span>
+							<span class="detail-value">{formatDate(item.returnDate || '')}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">From</span>
+							<span class="detail-value">{item.returnFrom} · {formatTime(item.returnDepartureTime || '')}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">To</span>
+							<span class="detail-value">{item.returnTo} · {formatTime(item.returnArrivalTime || '')}</span>
+						</div>
+					{:else}
+						<div class="detail-row">
+							<span class="detail-label">Airline</span>
+							<span class="detail-value">{item.airline} {item.flightNumber}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Date</span>
+							<span class="detail-value">{formatDate(item.date)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">From</span>
+							<span class="detail-value">{item.from} · {formatTime(item.departureTime)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">To</span>
+							<span class="detail-value">{item.to} · {formatTime(item.arrivalTime)}</span>
+						</div>
+					{/if}
+				{:else if item.type === 'hotel'}
+					<div class="detail-row">
+						<span class="detail-label">Hotel</span>
+						<span class="detail-value">{item.name}</span>
+					</div>
+					<div class="detail-row">
+						<span class="detail-label">Check-in</span>
+						<span class="detail-value">{formatDate(item.checkInDate)}</span>
+					</div>
+					<div class="detail-row">
+						<span class="detail-label">Check-out</span>
+						<span class="detail-value">{formatDate(item.checkOutDate)}</span>
+					</div>
+					{#if item.location}
+						<div class="detail-row">
+							<span class="detail-label">Location</span>
+							<span class="detail-value">{item.location}</span>
+						</div>
+					{/if}
+					{#if item.confirmationNumber}
+						<div class="detail-row">
+							<span class="detail-label">Confirmation</span>
+							<span class="detail-value">{item.confirmationNumber}</span>
+						</div>
+					{/if}
+				{:else if item.type === 'car-rental'}
+					{#if carRentalLeg === 'dropoff'}
+						<div class="detail-row">
+							<span class="detail-label">Drop-off Date</span>
+							<span class="detail-value">{formatDate(item.returnDate)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Drop-off Time</span>
+							<span class="detail-value">{formatTime(item.returnTime)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Location</span>
+							<span class="detail-value">{item.returnLocation}</span>
+						</div>
+					{:else}
+						<div class="detail-row">
+							<span class="detail-label">Pickup Date</span>
+							<span class="detail-value">{formatDate(item.pickupDate)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Pickup Time</span>
+							<span class="detail-value">{formatTime(item.pickupTime)}</span>
+						</div>
+						<div class="detail-row">
+							<span class="detail-label">Location</span>
+							<span class="detail-value">{item.pickupLocation}</span>
+						</div>
+					{/if}
+				{/if}
+			</div>
+			</div>
+
+			<div class="modal-footer">
+				<button class="btn-save" onclick={openEditFromView}>Edit</button>
+				<button class="btn-cancel" onclick={closeView}>Close</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Edit Modal -->
 {#if editing}
@@ -515,6 +737,12 @@
 		border-radius: var(--radius-md);
 		padding: var(--space-md);
 		border: 1px solid var(--color-border);
+		cursor: pointer;
+		transition: border-color 0.2s;
+	}
+
+	.itinerary-card:active {
+		border-color: var(--color-primary);
 	}
 
 	.card-type {
@@ -646,10 +874,15 @@
 		height: 18px;
 		color: var(--color-text-muted);
 		flex-shrink: 0;
+		transform: rotate(45deg);
 	}
 
 	.plane-icon-return {
-		transform: rotate(45deg);
+		transform: rotate(135deg);
+	}
+
+	.icon-return {
+		transform: rotate(90deg);
 	}
 
 	/* Modal styles */
