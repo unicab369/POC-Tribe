@@ -80,8 +80,8 @@
 	.page-title {
 		font-size: var(--font-2xl);
 		font-weight: 700;
-		padding-top: var(--space-lg);
-		margin-bottom: var(--space-md);
+		padding-top: var(--space-sm);
+		margin-bottom: var(--space-sm);
 	}
 
 	.search-bar {
