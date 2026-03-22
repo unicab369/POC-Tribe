@@ -438,6 +438,15 @@ export function deleteEvent(id: string) {
 	events.update((list) => list.filter((e) => e.id !== id));
 }
 
+export function addItineraryItem(eventId: string, item: ItineraryItem) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return { ...e, itinerary: [...e.itinerary, item] };
+		})
+	);
+}
+
 export function updateItineraryItem(eventId: string, updatedItem: ItineraryItem) {
 	events.update((list) =>
 		list.map((e) => {
@@ -448,6 +457,10 @@ export function updateItineraryItem(eventId: string, updatedItem: ItineraryItem)
 			};
 		})
 	);
+}
+
+export function updateEvent(id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) {
+	events.update((list) => list.map((e) => (e.id === id ? { ...e, ...updates } : e)));
 }
 
 export function addTribeMember(eventId: string, member: Omit<TribeMember, 'id'>) {

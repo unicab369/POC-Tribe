@@ -9,7 +9,8 @@
       "Bash(npm run build:*)",
       "Bash(xxd:*)",
       "Bash(cat:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(npx svelte-check:*)"
     ]
   }
 }
