@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { events, updateItineraryItem } from '$lib/stores/events';
+	import { events, updateItineraryItem, addTribeMember } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
 	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate } from '$lib/utils';
 	import type { Event, ItineraryItem, RSVPStatus } from '$lib/types';
@@ -48,6 +48,43 @@
 
 	function handleTribeOverlayClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) closeTribe();
+	}
+
+	// Add member form
+	let addingMember = $state(false);
+	let memberFirstName = $state('');
+	let memberLastName = $state('');
+	let memberEmail = $state('');
+	let memberPhone = $state('');
+	let showMemberErrors = $state(false);
+
+	function startAddMember() {
+		memberFirstName = '';
+		memberLastName = '';
+		memberEmail = '';
+		memberPhone = '';
+		showMemberErrors = false;
+		addingMember = true;
+	}
+
+	function cancelAddMember() {
+		addingMember = false;
+	}
+
+	function saveMember() {
+		if (!memberFirstName.trim() || !memberLastName.trim()) {
+			showMemberErrors = true;
+			return;
+		}
+		if (!event) return;
+		addTribeMember(event.id, {
+			firstName: memberFirstName.trim(),
+			lastName: memberLastName.trim(),
+			email: memberEmail.trim() || undefined,
+			phone: memberPhone.trim() || undefined,
+			rsvp: 'pending'
+		});
+		addingMember = false;
 	}
 
 	function handleItemSave(updated: ItineraryItem) {
@@ -128,27 +165,27 @@
 			<p class="event-description">{event.description}</p>
 		</header>
 
-		{#if event.itinerary.length > 0}
-			<section class="itinerary-section">
-				<h2>Agenda</h2>
-				{#each dates as date, i}
-					{@const dayItems = getItemsForDate(event.itinerary, date)}
+		<section class="itinerary-section">
+			<h2>Agenda</h2>
+			{#each dates as date, i}
+				{@const dayItems = getItemsForDate(event.itinerary, date)}
+				<div class="day-section">
+					<div class="day-header">
+						<span class="day-label">Day {i + 1}</span>
+						<span class="day-date">{formatDate(date)}</span>
+					</div>
 					{#if dayItems.length > 0}
-						<div class="day-section">
-							<div class="day-header">
-								<span class="day-label">Day {i + 1}</span>
-								<span class="day-date">{formatDate(date)}</span>
-							</div>
-							<div class="day-items">
-								{#each dayItems as entry (entry.item.id + (entry.flightLeg || ''))}
-									<ItineraryItemCard item={entry.item} flightLeg={entry.flightLeg} carRentalLeg={entry.carRentalLeg} onsave={handleItemSave} />
-								{/each}
-							</div>
+						<div class="day-items">
+							{#each dayItems as entry (entry.item.id + (entry.flightLeg || ''))}
+								<ItineraryItemCard item={entry.item} flightLeg={entry.flightLeg} carRentalLeg={entry.carRentalLeg} onsave={handleItemSave} />
+							{/each}
 						</div>
+					{:else}
+						<p class="day-empty">No items yet</p>
 					{/if}
-				{/each}
-			</section>
-		{/if}
+				</div>
+			{/each}
+		</section>
 		{#if showTribe}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="modal-overlay" onclick={handleTribeOverlayClick} onkeydown={() => {}}>
@@ -157,22 +194,61 @@
 						<h3>Tribe</h3>
 					</div>
 					<div class="modal-body">
-						{#if event.tribe.length === 0}
+						{#if addingMember}
+							<div class="add-member-form">
+								<div class="add-member-title">Add Tribe Member</div>
+								<div class="member-field-row">
+									<div class="member-field">
+										<label class="member-label required">First Name</label>
+										<input type="text" bind:value={memberFirstName} placeholder="First name" class:input-error={showMemberErrors && !memberFirstName.trim()} />
+									</div>
+									<div class="member-field">
+										<label class="member-label required">Last Name</label>
+										<input type="text" bind:value={memberLastName} placeholder="Last name" class:input-error={showMemberErrors && !memberLastName.trim()} />
+									</div>
+								</div>
+								<div class="member-field">
+									<label class="member-label">Email</label>
+									<input type="email" bind:value={memberEmail} placeholder="Email address" />
+								</div>
+								<div class="member-field">
+									<label class="member-label">Phone</label>
+									<input type="tel" bind:value={memberPhone} placeholder="Phone number" />
+								</div>
+								<div class="add-member-actions">
+									<button class="btn-add-member" onclick={saveMember}>Add</button>
+									<button class="btn-cancel-member" onclick={cancelAddMember}>Cancel</button>
+								</div>
+							</div>
+						{:else if event.tribe.length === 0}
 							<p class="empty-tribe">No tribe members yet.</p>
 						{:else}
 							<div class="tribe-list">
 								{#each event.tribe as member (member.id)}
 									<div class="tribe-member">
 										<div class="member-avatar">
-											{member.name.split(' ').map((n) => n[0]).join('')}
+											{member.firstName[0]}{member.lastName[0]}
 										</div>
-										<span class="member-name">{member.name}</span>
+										<div class="member-info">
+											<span class="member-name">{member.firstName} {member.lastName}</span>
+											{#if member.email || member.phone}
+												<span class="member-contact">{member.email || member.phone}</span>
+											{/if}
+										</div>
 										<span class="rsvp-badge" style="background-color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
 									</div>
 								{/each}
 							</div>
 						{/if}
 					</div>
+					{#if !addingMember}
+						<button class="fab" onclick={startAddMember} aria-label="Add tribe member">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+								<line x1="12" y1="5" x2="12" y2="19" />
+								<line x1="5" y1="12" x2="19" y2="12" />
+							</svg>
+						</button>
+					{/if}
 					<div class="modal-footer">
 						<button class="btn-close" onclick={closeTribe}>Close</button>
 					</div>
@@ -330,6 +406,12 @@
 		margin-top: var(--space-sm);
 	}
 
+	.day-empty {
+		font-size: var(--font-sm);
+		color: var(--color-text-muted);
+		padding: var(--space-sm) 0;
+	}
+
 	.not-found {
 		text-align: center;
 		padding: var(--space-xl) 0;
@@ -411,6 +493,7 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+		position: relative;
 	}
 
 	.modal-header {
@@ -495,6 +578,21 @@
 		color: var(--color-text);
 	}
 
+	.member-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.member-contact {
+		font-size: var(--font-sm);
+		color: var(--color-text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.rsvp-badge {
 		font-size: 0.65rem;
 		font-weight: 700;
@@ -503,5 +601,116 @@
 		border-radius: var(--radius-full);
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
+		flex-shrink: 0;
+	}
+
+	/* FAB */
+	.fab {
+		position: absolute;
+		bottom: 80px;
+		right: var(--space-md);
+		width: 48px;
+		height: 48px;
+		border-radius: var(--radius-full);
+		background: var(--color-primary);
+		color: white;
+		border: none;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	}
+
+	.fab svg {
+		width: 24px;
+		height: 24px;
+	}
+
+	/* Add member form */
+	.add-member-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+
+	.add-member-title {
+		font-size: var(--font-base);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.member-field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+		flex: 1;
+	}
+
+	.member-field-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-md);
+	}
+
+	.member-label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.member-label.required::after {
+		content: ' *';
+		color: var(--color-danger, #ef4444);
+	}
+
+	.add-member-form input {
+		padding: 12px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-base);
+		outline: none;
+		transition: border-color 0.2s;
+		color-scheme: dark;
+	}
+
+	.add-member-form input:focus {
+		border-color: var(--color-primary);
+	}
+
+	.add-member-form input.input-error {
+		border-color: var(--color-danger, #ef4444);
+	}
+
+	.add-member-actions {
+		display: flex;
+		gap: var(--space-sm);
+		margin-top: var(--space-xs);
+	}
+
+	.btn-add-member {
+		flex: 1;
+		padding: 14px;
+		background: var(--color-primary);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.btn-cancel-member {
+		flex: 1;
+		padding: 14px;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
 	}
 </style>

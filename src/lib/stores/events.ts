@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
-import type { Event, ItineraryItem } from '$lib/types';
+import type { Event, ItineraryItem, TribeMember } from '$lib/types';
 
 const STORAGE_KEY = 'tribe-events';
 
@@ -15,10 +15,10 @@ const mockEvents: Event[] = [
 		category: 'travel',
 		attendees: 4,
 		tribe: [
-			{ id: 't1', name: 'Alex Chen', rsvp: 'going' },
-			{ id: 't2', name: 'Jordan Lee', rsvp: 'going' },
-			{ id: 't3', name: 'Sam Rivera', rsvp: 'going' },
-			{ id: 't4', name: 'Taylor Kim', rsvp: 'maybe' }
+			{ id: 't1', firstName: 'Alex', lastName: 'Chen', email: 'alex@email.com', rsvp: 'going' },
+			{ id: 't2', firstName: 'Jordan', lastName: 'Lee', phone: '555-0102', rsvp: 'going' },
+			{ id: 't3', firstName: 'Sam', lastName: 'Rivera', email: 'sam@email.com', phone: '555-0103', rsvp: 'going' },
+			{ id: 't4', firstName: 'Taylor', lastName: 'Kim', rsvp: 'maybe' }
 		],
 		itinerary: [
 			{
@@ -208,13 +208,13 @@ const mockEvents: Event[] = [
 		category: 'wedding',
 		attendees: 150,
 		tribe: [
-			{ id: 't5', name: 'Sarah Mitchell', rsvp: 'going' },
-			{ id: 't6', name: 'James Park', rsvp: 'going' },
-			{ id: 't7', name: 'Emma Wilson', rsvp: 'going' },
-			{ id: 't8', name: 'Chris Nguyen', rsvp: 'going' },
-			{ id: 't9', name: 'Mia Johnson', rsvp: 'maybe' },
-			{ id: 't10', name: 'David Brown', rsvp: 'pending' },
-			{ id: 't11', name: 'Olivia Garcia', rsvp: 'not-going' }
+			{ id: 't5', firstName: 'Sarah', lastName: 'Mitchell', email: 'sarah@email.com', rsvp: 'going' },
+			{ id: 't6', firstName: 'James', lastName: 'Park', email: 'james@email.com', rsvp: 'going' },
+			{ id: 't7', firstName: 'Emma', lastName: 'Wilson', phone: '555-0201', rsvp: 'going' },
+			{ id: 't8', firstName: 'Chris', lastName: 'Nguyen', rsvp: 'going' },
+			{ id: 't9', firstName: 'Mia', lastName: 'Johnson', email: 'mia@email.com', rsvp: 'maybe' },
+			{ id: 't10', firstName: 'David', lastName: 'Brown', rsvp: 'pending' },
+			{ id: 't11', firstName: 'Olivia', lastName: 'Garcia', phone: '555-0204', rsvp: 'not-going' }
 		],
 		itinerary: [
 			{
@@ -319,9 +319,9 @@ const mockEvents: Event[] = [
 		category: 'business',
 		attendees: 85,
 		tribe: [
-			{ id: 't12', name: 'Ryan Torres', rsvp: 'going' },
-			{ id: 't13', name: 'Lisa Chang', rsvp: 'going' },
-			{ id: 't14', name: 'Mark Stevens', rsvp: 'pending' }
+			{ id: 't12', firstName: 'Ryan', lastName: 'Torres', email: 'ryan@email.com', rsvp: 'going' },
+			{ id: 't13', firstName: 'Lisa', lastName: 'Chang', rsvp: 'going' },
+			{ id: 't14', firstName: 'Mark', lastName: 'Stevens', phone: '555-0301', rsvp: 'pending' }
 		],
 		itinerary: [
 			{
@@ -359,10 +359,10 @@ const mockEvents: Event[] = [
 		category: 'music',
 		attendees: 120,
 		tribe: [
-			{ id: 't15', name: 'Nina Patel', rsvp: 'going' },
-			{ id: 't16', name: 'Jake Morrison', rsvp: 'going' },
-			{ id: 't17', name: 'Aisha Rahman', rsvp: 'maybe' },
-			{ id: 't18', name: 'Leo Fernandez', rsvp: 'not-going' }
+			{ id: 't15', firstName: 'Nina', lastName: 'Patel', email: 'nina@email.com', phone: '555-0401', rsvp: 'going' },
+			{ id: 't16', firstName: 'Jake', lastName: 'Morrison', rsvp: 'going' },
+			{ id: 't17', firstName: 'Aisha', lastName: 'Rahman', rsvp: 'maybe' },
+			{ id: 't18', firstName: 'Leo', lastName: 'Fernandez', rsvp: 'not-going' }
 		],
 		itinerary: [
 			{
@@ -387,7 +387,14 @@ function loadEvents(): Event[] {
 		const stored = localStorage.getItem(STORAGE_KEY);
 		if (stored) {
 			const parsed: Event[] = JSON.parse(stored);
-			return parsed.map((e) => ({ ...e, tribe: e.tribe ?? [] }));
+			return parsed.map((e) => ({
+				...e,
+				tribe: (e.tribe ?? []).map((m: any) => ({
+					...m,
+					firstName: m.firstName ?? (m.name ? m.name.split(' ')[0] : ''),
+					lastName: m.lastName ?? (m.name ? m.name.split(' ').slice(1).join(' ') : '')
+				}))
+			}));
 		}
 	} catch {
 		// ignore parse errors
@@ -438,6 +445,18 @@ export function updateItineraryItem(eventId: string, updatedItem: ItineraryItem)
 			return {
 				...e,
 				itinerary: e.itinerary.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+			};
+		})
+	);
+}
+
+export function addTribeMember(eventId: string, member: Omit<TribeMember, 'id'>) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return {
+				...e,
+				tribe: [...e.tribe, { ...member, id: Math.random().toString(36).substring(2, 10) }]
 			};
 		})
 	);

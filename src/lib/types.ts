@@ -64,8 +64,10 @@ export type RSVPStatus = 'going' | 'maybe' | 'not-going' | 'pending';
 
 export interface TribeMember {
 	id: string;
-	name: string;
-	avatar?: string;
+	firstName: string;
+	lastName: string;
+	email?: string;
+	phone?: string;
 	rsvp: RSVPStatus;
 }
 

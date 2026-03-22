@@ -1,21 +1,25 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { addEvent } from '$lib/stores/events';
-	import { generateId } from '$lib/utils';
+	import { generateId, getDateRange, getItemsForDate, formatDate } from '$lib/utils';
 	import type { EventCategory, FlightItem, ItineraryItem, ItemStatus } from '$lib/types';
+
+	const today = new Date().toISOString().split('T')[0];
 
 	let title = $state('');
 	let description = $state('');
-	let startDate = $state('');
-	let endDate = $state('');
+	let startDate = $state(today);
+	let endDate = $state(today);
 	let location = $state('');
 	let category = $state<EventCategory>('social');
 	let itinerary = $state<ItineraryItem[]>([]);
+	let dates = $derived(startDate && endDate ? getDateRange(startDate, endDate) : []);
 	let errors = $state<Record<string, string>>({});
 	let showSuccess = $state(false);
 
 	// Itinerary builder state
 	let addingType = $state<ItineraryItem['type'] | null>(null);
+	let addingForDate = $state<string | null>(null);
 	let itemStatus = $state<ItemStatus>('todo');
 
 	const statusLabels: Record<ItemStatus, string> = {
@@ -101,26 +105,41 @@
 		return d.toISOString().split('T')[0];
 	});
 
-	function validate(): boolean {
-		const newErrors: Record<string, string> = {};
-		if (!title.trim()) newErrors.title = 'Title is required';
-		if (!description.trim()) newErrors.description = 'Description is required';
-		if (!startDate) newErrors.startDate = 'Start date is required';
-		if (!location.trim()) newErrors.location = 'Location is required';
-		if (endDate && endDate < startDate) newErrors.endDate = 'End date must be on or after start date';
-		errors = newErrors;
-		return Object.keys(newErrors).length === 0;
+	let isValid = $derived(
+		!!title.trim() && !!startDate && !!endDate && !(startDate && endDate && endDate < startDate)
+	);
+
+	let snackbar = $state('');
+	let snackbarTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function showSnackbar(msg: string) {
+		snackbar = msg;
+		if (snackbarTimer) clearTimeout(snackbarTimer);
+		snackbarTimer = setTimeout(() => { snackbar = ''; }, 3000);
+	}
+
+	function getMissingFields(): string[] {
+		const missing: string[] = [];
+		if (!title.trim()) missing.push('Title');
+		if (!startDate) missing.push('Start Date');
+		if (!endDate) missing.push('End Date');
+		if (startDate && endDate && endDate < startDate) missing.push('End Date must be after Start Date');
+		return missing;
 	}
 
 	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (!validate()) return;
+		if (!isValid) {
+			const missing = getMissingFields();
+			showSnackbar('Missing: ' + missing.join(', '));
+			return;
+		}
 
 		addEvent({
 			title: title.trim(),
 			description: description.trim(),
 			startDate,
-			endDate: endDate || startDate,
+			endDate,
 			location: location.trim(),
 			category,
 			itinerary
@@ -134,7 +153,18 @@
 
 	function cancelAdd() {
 		addingType = null;
+		addingForDate = null;
 		resetItemForms();
+	}
+
+	function startAddForDay(date: string, type: ItineraryItem['type']) {
+		addingForDate = date;
+		addingType = type;
+		// Pre-fill date fields based on item type
+		if (type === 'activity') actDate = date;
+		else if (type === 'flight') flDate = date;
+		else if (type === 'hotel') htCheckIn = date;
+		else if (type === 'car-rental') crPickupDate = date;
 	}
 
 	function resetItemForms() {
@@ -273,7 +303,7 @@
 		<div class="section-title">Event Details</div>
 
 		<div class="field">
-			<label for="title">Title</label>
+			<label for="title" class="required">Title</label>
 			<input id="title" type="text" bind:value={title} placeholder="Event title" />
 			{#if errors.title}<span class="error">{errors.title}</span>{/if}
 		</div>
@@ -299,13 +329,13 @@
 
 		<div class="field-row">
 			<div class="field">
-				<label for="startDate">Start Date</label>
-				<input id="startDate" type="date" bind:value={startDate} />
+				<label for="startDate" class="required">Start Date</label>
+				<input id="startDate" type="date" bind:value={startDate} min={today} max={endDate || ''} />
 				{#if errors.startDate}<span class="error">{errors.startDate}</span>{/if}
 			</div>
 			<div class="field">
-				<label for="endDate">End Date</label>
-				<input id="endDate" type="date" bind:value={endDate} min={startDate} placeholder="Same as start" />
+				<label for="endDate" class="required">End Date</label>
+				<input id="endDate" type="date" bind:value={endDate} min={startDate || today} />
 				{#if errors.endDate}<span class="error">{errors.endDate}</span>{/if}
 			</div>
 		</div>
@@ -319,29 +349,39 @@
 		<!-- Itinerary Builder -->
 		<div class="section-title">Agenda</div>
 
-		{#if itinerary.length > 0}
-			<div class="itinerary-list">
-				{#each itinerary as item (item.id)}
-					<div class="itinerary-row">
-						<span class="item-type-badge" style="background-color: {typeColors[item.type]}">{typeLabels[item.type]}</span>
-						<span class="item-summary">{getItemSummary(item)}</span>
-						<button type="button" class="remove-btn" onclick={() => removeItem(item.id)}>×</button>
+		{#if dates.length > 0}
+			{#each dates as date, i}
+				{@const dayItems = getItemsForDate(itinerary, date)}
+				<div class="day-section">
+					<div class="day-header">
+						<span class="day-label">Day {i + 1}</span>
+						<span class="day-date">{formatDate(date)}</span>
 					</div>
-				{/each}
-			</div>
+					{#if dayItems.length > 0}
+						<div class="day-items">
+							{#each dayItems as entry (entry.item.id + (entry.flightLeg || '') + (entry.carRentalLeg || ''))}
+								<div class="itinerary-row">
+									<span class="item-type-badge" style="background-color: {typeColors[entry.item.type]}">{typeLabels[entry.item.type]}</span>
+									<span class="item-summary">{getItemSummary(entry.item)}</span>
+									<button type="button" class="remove-btn" onclick={() => removeItem(entry.item.id)}>×</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					{#if addingForDate !== date || addingType === null}
+						<div class="day-type-picker">
+							<button type="button" class="day-type-btn activity" onclick={() => startAddForDay(date, 'activity')}>+ Activity</button>
+							<button type="button" class="day-type-btn flight" onclick={() => startAddForDay(date, 'flight')}>+ Flight</button>
+							<button type="button" class="day-type-btn hotel" onclick={() => startAddForDay(date, 'hotel')}>+ Hotel</button>
+							<button type="button" class="day-type-btn car-rental" onclick={() => startAddForDay(date, 'car-rental')}>+ Car Rental</button>
+						</div>
+					{/if}
+				</div>
+			{/each}
 		{/if}
 
-		{#if addingType === null}
-			<div class="add-item-section">
-				<p class="add-label">Add Agenda Item</p>
-				<div class="type-picker">
-					<button type="button" class="type-btn activity" onclick={() => (addingType = 'activity')}>Activity</button>
-					<button type="button" class="type-btn flight" onclick={() => (addingType = 'flight')}>Flight</button>
-					<button type="button" class="type-btn hotel" onclick={() => (addingType = 'hotel')}>Hotel</button>
-					<button type="button" class="type-btn car-rental" onclick={() => (addingType = 'car-rental')}>Car Rental</button>
-				</div>
-			</div>
-		{:else if addingType === 'activity'}
+		{#if addingType !== null && addingForDate !== null}
+		{#if addingType === 'activity'}
 			<div class="inline-form">
 				<div class="inline-form-header">
 					<span class="inline-form-title" style="color: #8b5cf6">Add Activity</span>
@@ -619,10 +659,15 @@
 				</div>
 			</div>
 		{/if}
+		{/if}
 
-		<button type="submit" class="submit-btn" disabled={showSuccess}>Create Event</button>
+		<button type="submit" class="submit-btn" class:submit-disabled={!isValid} disabled={showSuccess}>Create Event</button>
 	</form>
 </div>
+
+{#if snackbar}
+	<div class="snackbar">{snackbar}</div>
+{/if}
 
 <style>
 	.no-top-padding {
@@ -748,6 +793,98 @@
 	.submit-btn:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.submit-btn.submit-disabled {
+		opacity: 0.5;
+	}
+
+	/* Snackbar */
+	.snackbar {
+		position: fixed;
+		bottom: 80px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: #1e293b;
+		color: #f8fafc;
+		padding: 12px 24px;
+		border-radius: var(--radius-md);
+		font-size: var(--font-sm);
+		font-weight: 500;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+		z-index: 2000;
+		max-width: calc(100% - 32px);
+		text-align: center;
+		border: 1px solid var(--color-border);
+		animation: snackbar-in 0.2s ease-out;
+	}
+
+	@keyframes snackbar-in {
+		from {
+			opacity: 0;
+			transform: translateX(-50%) translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0);
+		}
+	}
+
+	/* Day sections */
+	.day-section {
+		margin-bottom: var(--space-md);
+	}
+
+	.day-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--space-sm);
+	}
+
+	.day-label {
+		font-size: var(--font-base);
+		font-weight: 700;
+		color: var(--color-primary);
+	}
+
+	.day-date {
+		font-size: var(--font-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.day-items {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+	}
+
+	.day-type-picker {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: var(--space-sm);
+	}
+
+	.day-type-btn {
+		padding: 4px 10px;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-full);
+		background: none;
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.day-type-btn.activity { color: #8b5cf6; }
+	.day-type-btn.flight { color: #3b82f6; }
+	.day-type-btn.hotel { color: #f59e0b; }
+	.day-type-btn.car-rental { color: #22c55e; }
+
+	.day-type-btn:hover {
+		border-style: solid;
+		background: var(--color-bg);
 	}
 
 	/* Itinerary builder */
