@@ -28,7 +28,7 @@
 	);
 </script>
 
-<div class="container">
+<div class="container no-top-padding">
 	<div class="sticky-header">
 		<h1 class="page-title">Events</h1>
 
@@ -68,13 +68,28 @@
 	</div>
 </div>
 
+<a href="/create" class="fab" aria-label="Create Event">
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+		<line x1="12" y1="5" x2="12" y2="19" />
+		<line x1="5" y1="12" x2="19" y2="12" />
+	</svg>
+</a>
+
 <style>
+	.no-top-padding {
+		padding-top: 0;
+	}
+
 	.sticky-header {
 		position: sticky;
 		top: 0;
 		z-index: 10;
 		background: var(--color-bg);
 		padding-bottom: var(--space-sm);
+		margin-left: calc(-1 * var(--space-md));
+		margin-right: calc(-1 * var(--space-md));
+		padding-left: var(--space-md);
+		padding-right: var(--space-md);
 	}
 
 	.page-title {
@@ -152,5 +167,27 @@
 		text-align: center;
 		color: var(--color-text-muted);
 		padding: var(--space-xl);
+	}
+
+	.fab {
+		position: fixed;
+		bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+		right: 16px;
+		width: 56px;
+		height: 56px;
+		border-radius: var(--radius-full);
+		background: var(--color-primary);
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+		text-decoration: none;
+		z-index: 50;
+	}
+
+	.fab svg {
+		width: 28px;
+		height: 28px;
 	}
 </style>

@@ -271,12 +271,6 @@
 				</svg>
 			</a>
 			<h1 class="page-title">{event.title}</h1>
-			<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-				</svg>
-			</button>
 			<button class="tribe-btn" onclick={openTribe} aria-label="View Tribe">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -287,6 +281,12 @@
 				{#if event.tribe.length > 0}
 					<span class="tribe-count">{event.tribe.length}</span>
 				{/if}
+			</button>
+			<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+				</svg>
 			</button>
 		</div>
 
@@ -895,7 +895,6 @@
 
 	/* Edit button in header */
 	.edit-btn {
-		margin-left: auto;
 		background: none;
 		border: none;
 		color: var(--color-text);
@@ -913,6 +912,7 @@
 
 	/* Tribe button in header */
 	.tribe-btn {
+		margin-left: auto;
 		background: none;
 		border: none;
 		color: var(--color-text);
