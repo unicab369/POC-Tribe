@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ItineraryItem, ItemStatus } from '$lib/types';
 	import type { FlightLeg, CarRentalLeg } from '$lib/utils';
-	import { formatTime, formatDate } from '$lib/utils';
+	import { formatTime, formatDate, timeOptions } from '$lib/utils';
 
 	const statusLabels: Record<ItemStatus, string> = {
 		todo: 'Todo',
@@ -586,11 +586,11 @@
 					<div class="field-row">
 						<div class="field">
 							<label>Start Time</label>
-							<input type="time" bind:value={actStartTime} />
+							<select bind:value={actStartTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 						</div>
 						<div class="field">
 							<label>End Time</label>
-							<input type="time" bind:value={actEndTime} />
+							<select bind:value={actEndTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 						</div>
 					</div>
 					<div class="field">
@@ -644,11 +644,11 @@
 						<div class="field-row">
 							<div class="field">
 								<label class:required={flOutAllRequired}>Departure</label>
-								<input type="time" bind:value={flDepartureTime} class:input-error={showErrors && flOutAllRequired && !flDepartureTime} />
+								<select bind:value={flDepartureTime} class:input-error={showErrors && flOutAllRequired && !flDepartureTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 							</div>
 							<div class="field">
 								<label class:required={flOutAllRequired}>Arrival</label>
-								<input type="time" bind:value={flArrivalTime} class:input-error={showErrors && flOutAllRequired && !flArrivalTime} />
+								<select bind:value={flArrivalTime} class:input-error={showErrors && flOutAllRequired && !flArrivalTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 							</div>
 						</div>
 					{:else}
@@ -679,11 +679,11 @@
 						<div class="field-row">
 							<div class="field">
 								<label class:required={flRetAllRequired}>Departure</label>
-								<input type="time" bind:value={flRetDepartureTime} class:input-error={showErrors && flRetAllRequired && !flRetDepartureTime} />
+								<select bind:value={flRetDepartureTime} class:input-error={showErrors && flRetAllRequired && !flRetDepartureTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 							</div>
 							<div class="field">
 								<label class:required={flRetAllRequired}>Arrival</label>
-								<input type="time" bind:value={flRetArrivalTime} class:input-error={showErrors && flRetAllRequired && !flRetArrivalTime} />
+								<select bind:value={flRetArrivalTime} class:input-error={showErrors && flRetAllRequired && !flRetArrivalTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 							</div>
 						</div>
 					{/if}
@@ -722,7 +722,7 @@
 						</div>
 						<div class="field">
 							<label>Pickup Time</label>
-							<input type="time" bind:value={crPickupTime} />
+							<select bind:value={crPickupTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 						</div>
 					</div>
 					<label class="checkbox-row">
@@ -742,7 +742,7 @@
 						</div>
 						<div class="field">
 							<label>Return Time</label>
-							<input type="time" bind:value={crReturnTime} />
+							<select bind:value={crReturnTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 						</div>
 					</div>
 				{/if}

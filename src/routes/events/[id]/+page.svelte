@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { events, updateItineraryItem, addItineraryItem, addTribeMember, updateEvent, addTribeGroup, deleteTribeGroup, assignMemberToTribe, updateTribeMember, deleteTribeMember } from '$lib/stores/events';
+	import { events, updateItineraryItem, addItineraryItem, addTribeMember, updateEvent, addTribeGroup, deleteTribeGroup, renameTribeGroup, assignMemberToTribe, updateTribeMember, deleteTribeMember } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
-	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate, generateId } from '$lib/utils';
+	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate, generateId, timeOptions, formatTime } from '$lib/utils';
 	import type { Event, ItineraryItem, RSVPStatus, ItemStatus, FlightItem, TribeMember } from '$lib/types';
 
 	let event = $derived($events.find((e) => e.id === page.params.id));
@@ -150,24 +150,32 @@
 	let tribeManageMode = $state(false);
 	let newTribeName = $state('');
 	let selectedTribeId = $state<string | null>(null);
+	let editTribeName = $state('');
 	let pendingAssignments = $state<Set<string>>(new Set());
 
-	function selectTribeForAssign(groupId: string) {
+	function selectTribeForEdit(groupId: string) {
+		const group = event?.tribeGroups.find((g) => g.id === groupId);
 		selectedTribeId = groupId;
+		editTribeName = group?.name ?? '';
 		pendingAssignments = new Set();
 	}
 
-	function cancelTribeAssign() {
+	function cancelTribeEdit() {
 		selectedTribeId = null;
+		editTribeName = '';
 		pendingAssignments = new Set();
 	}
 
-	function saveTribeAssign() {
+	function saveTribeEdit() {
 		if (!event || !selectedTribeId) return;
+		if (editTribeName.trim()) {
+			renameTribeGroup(event.id, selectedTribeId, editTribeName.trim());
+		}
 		for (const memberId of pendingAssignments) {
 			assignMemberToTribe(event.id, memberId, selectedTribeId);
 		}
 		selectedTribeId = null;
+		editTribeName = '';
 		pendingAssignments = new Set();
 	}
 
@@ -430,6 +438,38 @@
 		printStyleIndex = (printStyleIndex + 1) % printStyles.length;
 	}
 
+	// Day title editing
+	let editingDayDate = $state<string | null>(null);
+	let editingDayIndex = $state(0);
+	let editingDayTitle = $state('');
+
+	function startEditDayTitle(date: string) {
+		editingDayIndex = dates.indexOf(date) + 1;
+		editingDayTitle = event?.dayTitles?.[date] ?? '';
+		editingDayDate = date;
+	}
+
+	function saveDayTitle() {
+		if (!event || !editingDayDate) return;
+		const titles = { ...(event.dayTitles ?? {}) };
+		const trimmed = editingDayTitle.trim();
+		if (trimmed) {
+			titles[editingDayDate] = trimmed;
+		} else {
+			delete titles[editingDayDate];
+		}
+		updateEvent(event.id, { dayTitles: titles });
+		editingDayDate = null;
+	}
+
+	function cancelEditDayTitle() {
+		editingDayDate = null;
+	}
+
+	function handleDayTitleOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) cancelEditDayTitle();
+	}
+
 	const categoryColors: Record<Event['category'], string> = {
 		social: '#8b5cf6',
 		business: '#3b82f6',
@@ -521,10 +561,10 @@
 			{#each dates as date, i}
 				{@const dayItems = getItemsForDate(event.itinerary, date)}
 				<div class="day-section">
-					<div class="day-header">
-						<span class="day-label">Day {i + 1}</span>
+					<button class="day-header" onclick={() => startEditDayTitle(date)}>
+						<span class="day-label">Day {i + 1}{#if event.dayTitles?.[date]} - {event.dayTitles[date]}{/if}</span>
 						<span class="day-date">{formatDate(date)}</span>
-					</div>
+					</button>
 					{#if dayItems.length > 0}
 						<div class="day-items">
 							{#each dayItems as entry (entry.item.id + (entry.flightLeg || ''))}
@@ -566,11 +606,11 @@
 								<div class="edit-field-row">
 									<div class="edit-field">
 										<label class="edit-label">Start Time</label>
-										<input type="time" bind:value={actStartTime} />
+										<select bind:value={actStartTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 									</div>
 									<div class="edit-field">
 										<label class="edit-label">End Time</label>
-										<input type="time" bind:value={actEndTime} />
+										<select bind:value={actEndTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 									</div>
 								</div>
 								<div class="edit-field">
@@ -605,11 +645,11 @@
 								<div class="edit-field-row">
 									<div class="edit-field">
 										<label class="edit-label">Departure</label>
-										<input type="time" bind:value={flDepartureTime} />
+										<select bind:value={flDepartureTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 									</div>
 									<div class="edit-field">
 										<label class="edit-label">Arrival</label>
-										<input type="time" bind:value={flArrivalTime} />
+										<select bind:value={flArrivalTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 									</div>
 								</div>
 							{:else if addingType === 'hotel'}
@@ -636,7 +676,7 @@
 								</div>
 								<div class="edit-field">
 									<label class="edit-label">Pickup Time</label>
-									<input type="time" bind:value={crPickupTime} />
+									<select bind:value={crPickupTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 								</div>
 								<label class="add-checkbox-row"><input type="checkbox" bind:checked={crSameDropoff} /><span>Same drop-off location</span></label>
 								{#if !crSameDropoff}
@@ -652,7 +692,7 @@
 									</div>
 									<div class="edit-field">
 										<label class="edit-label">Return Time</label>
-										<input type="time" bind:value={crReturnTime} />
+										<select bind:value={crReturnTime}><option value="">--:--</option>{#each timeOptions as t}<option value={t}>{formatTime(t)}</option>{/each}</select>
 									</div>
 								</div>
 							{/if}
@@ -673,12 +713,37 @@
 				</div>
 			</div>
 		{/if}
+		{#if editingDayDate !== null}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={handleDayTitleOverlayClick} onkeydown={() => {}}>
+				<div class="modal">
+					<div class="modal-header">
+						<h3>Day {editingDayIndex} Title</h3>
+					</div>
+					<div class="modal-body">
+						<div class="edit-form">
+							<div class="edit-field">
+								<label class="edit-label">Title</label>
+								<!-- svelte-ignore a11y_autofocus -->
+								<input type="text" bind:value={editingDayTitle} placeholder="e.g. Arrival, Beach Day..." autofocus onkeydown={(e) => { if (e.key === 'Enter') saveDayTitle(); }} />
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button class="btn-footer-add" onclick={saveDayTitle}>Submit</button>
+						<button class="btn-footer-close" onclick={cancelEditDayTitle}>Cancel</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 		{#if showTribe}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="modal-overlay" onclick={handleTribeOverlayClick} onkeydown={() => {}}>
 				<div class="modal">
 					<div class="modal-header">
-						{#if tribeManageMode}
+						{#if tribeManageMode && selectedTribeId}
+							<h3>Edit Tribe</h3>
+						{:else if tribeManageMode}
 							<h3>Manage Tribes</h3>
 						{:else if viewingMemberId && viewingMember}
 							<h3>{editingMember ? 'Edit Member' : viewingMember.firstName + ' ' + viewingMember.lastName}</h3>
@@ -691,8 +756,11 @@
 					</div>
 					<div class="modal-body">
 						{#if tribeManageMode && selectedTribeId}
-							{@const selectedGroup = event.tribeGroups.find((g) => g.id === selectedTribeId)}
-							<div class="manage-section-title">Add to {selectedGroup?.name ?? 'Tribe'}</div>
+							<div class="member-field">
+								<label class="member-label">Tribe Name</label>
+								<input type="text" bind:value={editTribeName} placeholder="Tribe name" />
+							</div>
+							<div class="manage-section-title">Add Members</div>
 							{#if unassignedMembers.length === 0}
 								<p class="empty-tribe">No unassigned members.</p>
 							{:else}
@@ -711,12 +779,12 @@
 								<input type="text" bind:value={newTribeName} placeholder="New tribe name" onkeydown={(e) => { if (e.key === 'Enter') addNewTribeGroup(); }} />
 								<button class="btn-footer-add" onclick={addNewTribeGroup}>Add</button>
 							</div>
-							<div class="manage-section-title">Groups</div>
+							<div class="manage-section-title">Tribes</div>
 							{#if event.tribeGroups.length === 0}
-								<p class="empty-tribe">No tribe groups yet.</p>
+								<p class="empty-tribe">No tribes yet.</p>
 							{:else}
 								{#each event.tribeGroups as group (group.id)}
-									<button class="tribe-group-row" onclick={() => selectTribeForAssign(group.id)}>
+									<button class="tribe-group-row" onclick={() => selectTribeForEdit(group.id)}>
 										<span class="tribe-group-name">{group.name}</span>
 										<span class="tribe-section-count">{event.tribe.filter((m) => m.tribeId === group.id).length}</span>
 										<span class="tribe-group-delete" role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); deleteTribeGroup(event.id, group.id); }} onkeydown={() => {}} aria-label="Delete group">&times;</span>
@@ -737,12 +805,12 @@
 										</div>
 									</div>
 									<div class="member-field">
-										<label class="member-label">Email</label>
-										<input type="email" bind:value={editMemberEmail} placeholder="Email address" />
-									</div>
-									<div class="member-field">
 										<label class="member-label">Phone</label>
 										<input type="tel" bind:value={editMemberPhone} placeholder="Phone number" />
+									</div>
+									<div class="member-field">
+										<label class="member-label">Email</label>
+										<input type="email" bind:value={editMemberEmail} placeholder="Email address" />
 									</div>
 									<div class="member-field">
 										<label class="member-label">RSVP</label>
@@ -811,12 +879,12 @@
 									</div>
 								</div>
 								<div class="member-field">
-									<label class="member-label">Email</label>
-									<input type="email" bind:value={memberEmail} placeholder="Email address" />
-								</div>
-								<div class="member-field">
 									<label class="member-label">Phone</label>
 									<input type="tel" bind:value={memberPhone} placeholder="Phone number" />
+								</div>
+								<div class="member-field">
+									<label class="member-label">Email</label>
+									<input type="email" bind:value={memberEmail} placeholder="Email address" />
 								</div>
 								{#if event.tribeGroups.length > 0}
 									<div class="member-field">
@@ -880,8 +948,8 @@
 					</div>
 					<div class="modal-footer">
 						{#if tribeManageMode && selectedTribeId}
-							<button class="btn-footer-add" onclick={saveTribeAssign}>Save</button>
-							<button class="btn-footer-close" onclick={cancelTribeAssign}>Cancel</button>
+							<button class="btn-footer-add" onclick={saveTribeEdit}>Save</button>
+							<button class="btn-footer-close" onclick={cancelTribeEdit}>Cancel</button>
 						{:else if tribeManageMode}
 							<button class="btn-footer-add" onclick={() => (tribeManageMode = false)}>Done</button>
 						{:else if viewingMemberId && editingMember}
@@ -988,7 +1056,7 @@
 							{#each dates as date, i}
 								{@const dayItems = getItemsForDate(event.itinerary, date)}
 								<div class="print-day">
-									<div class="print-day-header">Day {i + 1} &mdash; {formatDate(date)}</div>
+									<div class="print-day-header">Day {i + 1}{#if event.dayTitles?.[date]} - {event.dayTitles[date]}{/if} &mdash; {formatDate(date)}</div>
 									{#if dayItems.length === 0}
 										<p class="print-empty">No items</p>
 									{:else}
@@ -1191,6 +1259,12 @@
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: var(--space-sm);
+		background: none;
+		border: none;
+		width: 100%;
+		padding: var(--space-xs) 0;
+		cursor: pointer;
+		text-align: left;
 	}
 
 	.day-label {
@@ -2355,10 +2429,14 @@
 
 	.tribe-member-clickable {
 		background: none;
+		border: none;
+		outline: none;
 		width: 100%;
 		cursor: pointer;
 		text-align: left;
-		transition: background 0.15s;
+		font: inherit;
+		color: inherit;
+		padding: var(--space-sm) 0;
 	}
 
 	.tribe-member-clickable:hover {
@@ -2424,9 +2502,10 @@
 	.tribe-section-header {
 		display: flex;
 		align-items: center;
-		gap: var(--space-sm);
-		padding: var(--space-sm) 0 var(--space-xs);
-		margin-top: var(--space-sm);
+		gap: var(--space-xs);
+		padding: 4px var(--space-md);
+		margin: var(--space-sm) calc(-1 * var(--space-md)) 0;
+		background: var(--color-bg);
 	}
 
 	.tribe-section-header:first-child {
@@ -2434,9 +2513,9 @@
 	}
 
 	.tribe-section-name {
-		font-size: var(--font-sm);
+		font-size: 0.7rem;
 		font-weight: 700;
-		color: var(--color-text);
+		color: var(--color-text-secondary);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 	}
@@ -2445,9 +2524,7 @@
 		font-size: 0.7rem;
 		font-weight: 600;
 		color: var(--color-text-muted);
-		background: var(--color-bg);
-		padding: 1px 7px;
-		border-radius: var(--radius-full);
+		margin-left: auto;
 	}
 
 	.empty-group-hint {

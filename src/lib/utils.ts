@@ -39,6 +39,16 @@ export function getDayCount(startDate: string, endDate: string): number {
 	return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 }
 
+export const timeOptions: string[] = (() => {
+	const opts: string[] = [];
+	for (let h = 0; h < 24; h++) {
+		for (const m of [0, 15, 30, 45]) {
+			opts.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+		}
+	}
+	return opts;
+})();
+
 export function generateId(): string {
 	return Math.random().toString(36).substring(2, 10);
 }

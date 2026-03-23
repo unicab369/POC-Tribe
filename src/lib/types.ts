@@ -89,5 +89,6 @@ export interface Event {
 	tribe: TribeMember[];
 	tribeGroups: TribeGroup[];
 	itinerary: ItineraryItem[];
+	dayTitles?: Record<string, string>;
 	createdAt: string;
 }

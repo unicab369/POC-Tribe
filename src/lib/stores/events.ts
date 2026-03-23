@@ -498,6 +498,15 @@ export function addTribeGroup(eventId: string, name: string) {
 	);
 }
 
+export function renameTribeGroup(eventId: string, groupId: string, name: string) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return { ...e, tribeGroups: e.tribeGroups.map((g) => (g.id === groupId ? { ...g, name } : g)) };
+		})
+	);
+}
+
 export function deleteTribeGroup(eventId: string, groupId: string) {
 	events.update((list) =>
 		list.map((e) => {

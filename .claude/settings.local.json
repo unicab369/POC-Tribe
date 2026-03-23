@@ -10,7 +10,8 @@
       "Bash(xxd:*)",
       "Bash(cat:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx svelte-check:*)"
+      "Bash(npx svelte-check:*)",
+      "Bash(wc -l:*)"
     ]
   }
 }
