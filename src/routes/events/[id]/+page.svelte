@@ -655,6 +655,7 @@
 	let editingStateLabel = $state('');
 	let editingStateColor = $state('');
 	let showModePicker = $state(false);
+	let showStatesEditor = $state(false);
 
 	function selectChecklistMode(mode: 'simple' | 'states') {
 		if (!event) return;
@@ -829,6 +830,28 @@
 		</header>
 
 
+		{#if event.category === 'wedding'}
+			<div class="wedding-actions">
+				<button class="wedding-action-btn checklist-btn" onclick={openChecklist}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M9 11l3 3L22 4" />
+						<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+					</svg>
+					Checklist
+					{#if checklistProgress.total > 0}
+						<span class="checklist-badge">{checklistProgress.done}/{checklistProgress.total}</span>
+					{/if}
+				</button>
+				<button class="wedding-action-btn edit-action-btn" onclick={openEdit}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+					</svg>
+					Edit
+				</button>
+			</div>
+		{/if}
+
 		<section class="itinerary-section">
 			<div class="agenda-header">
 				<h2>Agenda</h2>
@@ -850,27 +873,6 @@
 					{/if}
 				</div>
 			</div>
-			{#if event.category === 'wedding'}
-				<div class="wedding-actions">
-					<button class="wedding-action-btn checklist-btn" onclick={openChecklist}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M9 11l3 3L22 4" />
-							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-						</svg>
-						Checklist
-						{#if checklistProgress.total > 0}
-							<span class="checklist-badge">{checklistProgress.done}/{checklistProgress.total}</span>
-						{/if}
-					</button>
-					<button class="wedding-action-btn edit-action-btn" onclick={openEdit}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-						</svg>
-						Edit
-					</button>
-				</div>
-			{/if}
 			{#each dates as date, i}
 				{@const dayItems = getItemsForDate(event.itinerary, date)}
 				<div class="day-section">
@@ -1474,30 +1476,14 @@
 									{/if}
 								</div>
 								{#if event.checklistMode === 'states' && event.checklistStates}
-									<div class="checklist-states-editor">
-										{#each event.checklistStates as state (state.id)}
-											<div class="state-editor-row">
-												<input type="color" value={state.color} onchange={(e) => updateStateColor(state.id, (e.target as HTMLInputElement).value)} />
-												{#if editingStateId === state.id}
-													<input class="state-label-input" type="text" bind:value={editingStateLabel} onkeydown={(e) => { if (e.key === 'Enter') saveEditState(); if (e.key === 'Escape') { editingStateId = null; } }} />
-													<button class="checklist-action-btn checklist-save-btn" onclick={saveEditState} aria-label="Save">
-														<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-													</button>
-												{:else}
-													<span class="state-label" onclick={() => startEditState(state.id)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEditState(state.id); }}>{state.label}</span>
-													{#if event.checklistStates.length > 1}
-														<button class="checklist-action-btn checklist-remove-btn" onclick={() => removeChecklistState(state.id)} aria-label="Remove state">
-															&times;
-														</button>
-													{/if}
-												{/if}
-											</div>
-										{/each}
-										<div class="state-add-row">
-											<input type="text" placeholder="New state" bind:value={newStateName} onkeydown={(e) => { if (e.key === 'Enter') addChecklistState(); }} />
-											<button class="btn-footer-add" onclick={addChecklistState}>+ Add</button>
-										</div>
-									</div>
+									<button class="manage-states-btn" onclick={() => (showStatesEditor = true)}>
+										<span class="manage-states-dots">
+											{#each event.checklistStates.slice(0, 4) as s}
+												<span class="state-dot-mini" style="background: {s.color}"></span>
+											{/each}
+										</span>
+										Manage States
+									</button>
 								{/if}
 								<div class="checklist-add-row">
 									<input type="text" bind:value={newChecklistLabel} placeholder="New item" onkeydown={(e) => { if (e.key === 'Enter') addChecklistItem(); }} />
@@ -1596,6 +1582,45 @@
 				</div>
 			</div>
 		{/if}
+		{#if showStatesEditor && event.checklistStates}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={(e) => { if (e.target === e.currentTarget) showStatesEditor = false; }} onkeydown={() => {}}>
+				<div class="modal states-editor-modal">
+					<div class="modal-header">
+						<h3 style="color: #ec4899">Manage States</h3>
+					</div>
+					<div class="modal-body">
+						<div class="checklist-states-editor">
+							{#each event.checklistStates as state (state.id)}
+								<div class="state-editor-row">
+									<input type="color" value={state.color} onchange={(e) => updateStateColor(state.id, (e.target as HTMLInputElement).value)} />
+									{#if editingStateId === state.id}
+										<input class="state-label-input" type="text" bind:value={editingStateLabel} onkeydown={(e) => { if (e.key === 'Enter') saveEditState(); if (e.key === 'Escape') { editingStateId = null; } }} />
+										<button class="checklist-action-btn checklist-save-btn" onclick={saveEditState} aria-label="Save">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+										</button>
+									{:else}
+										<span class="state-label" onclick={() => startEditState(state.id)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEditState(state.id); }}>{state.label}</span>
+										{#if event.checklistStates.length > 1}
+											<button class="checklist-action-btn checklist-remove-btn" onclick={() => removeChecklistState(state.id)} aria-label="Remove state">
+												&times;
+											</button>
+										{/if}
+									{/if}
+								</div>
+							{/each}
+							<div class="state-add-row">
+								<input type="text" placeholder="New state" bind:value={newStateName} onkeydown={(e) => { if (e.key === 'Enter') addChecklistState(); }} />
+								<button class="btn-footer-add" onclick={addChecklistState}>+ Add</button>
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button class="btn-footer-close" onclick={() => { showStatesEditor = false; editingStateId = null; }}>Done</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{:else}
 		<div class="not-found">
 			<h1>Event Not Found</h1>
@@ -1671,7 +1696,7 @@
 		padding: 4px;
 		display: flex;
 		align-items: center;
-		align-self: center;
+		margin: 0 auto;
 		border-radius: var(--radius-sm);
 		transition: color 0.15s;
 	}
@@ -3467,20 +3492,20 @@
 
 	.checklist-progress-pct {
 		font-weight: 600;
-		color: #ec4899;
+		color: #22c55e;
 	}
 
 	.checklist-progress-bar {
 		width: 100%;
 		height: 8px;
-		background: var(--color-surface);
+		background: rgba(34, 197, 94, 0.15);
 		border-radius: var(--radius-full);
 		overflow: hidden;
 	}
 
 	.checklist-progress-fill {
 		height: 100%;
-		background: #ec4899;
+		background: #22c55e;
 		border-radius: var(--radius-full);
 		transition: width 0.25s ease;
 	}
@@ -3820,14 +3845,49 @@
 		padding-left: 26px;
 	}
 
+	/* Manage States button */
+	.manage-states-btn {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 10px 16px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: none;
+		color: var(--color-text-secondary);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.manage-states-btn:hover {
+		border-color: #ec4899;
+		color: #ec4899;
+	}
+
+	.manage-states-dots {
+		display: flex;
+		gap: 4px;
+	}
+
+	.state-dot-mini {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	/* States editor modal */
+	.states-editor-modal .modal-body {
+		padding: var(--space-md);
+	}
+
 	/* Checklist states editor */
 	.checklist-states-editor {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-sm);
-		margin-bottom: var(--space-md);
-		padding-bottom: var(--space-md);
-		border-bottom: 1px solid var(--color-border);
 	}
 
 	.state-editor-row {

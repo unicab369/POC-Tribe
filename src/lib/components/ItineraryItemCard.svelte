@@ -152,8 +152,10 @@
 	}
 
 	function cancel() {
-		unlockScroll();
 		editing = false;
+		if (!viewing) {
+			unlockScroll();
+		}
 	}
 
 	let showErrors = $state(false);
@@ -208,8 +210,10 @@
 			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim(), status: item.status };
 		}
 		onsave?.(updated);
-		unlockScroll();
 		editing = false;
+		if (!viewing) {
+			unlockScroll();
+		}
 	}
 
 	function handleOverlayClick(e: MouseEvent) {
@@ -233,6 +237,12 @@
 	function closeView() {
 		unlockScroll();
 		viewing = false;
+		editing = false;
+	}
+
+	function changeStatus(newStatus: ItemStatus) {
+		const updated = { ...item, status: newStatus };
+		onsave?.(updated);
 	}
 
 	function handleViewOverlayClick(e: MouseEvent) {
@@ -240,8 +250,7 @@
 	}
 
 	function openEditFromView() {
-		viewing = false;
-		// scroll is already locked, populate edit fields
+		// scroll is already locked, keep viewing open so we return to it
 		if (item.type === 'activity') {
 			actTitle = item.title;
 			actDate = item.date;
@@ -324,12 +333,6 @@
 			{/if}
 		{/if}
 		<span class="type-label">{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}{#if item.type === 'car-rental' && carRentalLeg}{carRentalLeg === 'pickup' ? ' · Pickup' : ' · Drop-off'}{/if}</span>
-		<button class="edit-btn" onclick={(e) => { e.stopPropagation(); startEdit(); }} aria-label="Edit">
-			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-				<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-			</svg>
-		</button>
 	</div>
 
 	<span class="status-badge" style="background-color: {statusColors[item.status]}">{statusLabels[item.status]}</span>
@@ -414,15 +417,20 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="modal-overlay" onclick={handleViewOverlayClick} onkeydown={() => {}}>
 		<div class="modal">
-			<div class="modal-header">
+			<div class="modal-header view-header">
+				<button class="header-edit-btn" onclick={openEditFromView} aria-label="Edit">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+					</svg>
+				</button>
 				<h3>{typeLabels[item.type]}{#if item.type === 'flight' && flightLeg}{flightLeg === 'outbound' ? ' · Outbound' : ' · Return'}{/if}{#if item.type === 'car-rental' && carRentalLeg}{carRentalLeg === 'pickup' ? ' · Pickup' : ' · Drop-off'}{/if}</h3>
+				<div class="header-edit-spacer"></div>
 			</div>
 
 			<div class="modal-body">
 			<div class="modal-body-inner">
-				<span class="status-badge" style="background-color: {statusColors[item.status]}">{statusLabels[item.status]}</span>
-
-				{#if item.type === 'activity'}
+					{#if item.type === 'activity'}
 					<div class="detail-row">
 						<span class="detail-label">Title</span>
 						<span class="detail-value">{item.title}</span>
@@ -551,12 +559,27 @@
 						{/if}
 					{/if}
 				{/if}
+
+				<div class="status-picker-section">
+					<span class="status-picker-label">Status</span>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								class="status-option"
+								class:active={item.status === s}
+								style={item.status === s ? `background-color: ${statusColors[s]}; color: white; border-color: ${statusColors[s]};` : ''}
+								onclick={() => changeStatus(s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
+				</div>
 			</div>
 			</div>
 
 			<div class="modal-footer">
-				<button class="btn-save" onclick={openEditFromView}>Edit</button>
-				<button class="btn-cancel" onclick={closeView}>Close</button>
+				<button class="btn-save" onclick={closeView}>Done</button>
 			</div>
 		</div>
 	</div>
@@ -945,6 +968,37 @@
 		color: var(--color-text);
 	}
 
+	.view-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.header-edit-btn {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+		transition: color 0.2s;
+	}
+
+	.header-edit-btn:hover {
+		color: var(--color-primary);
+	}
+
+	.header-edit-btn svg {
+		width: 18px;
+		height: 18px;
+	}
+
+	.header-edit-spacer {
+		width: 26px;
+	}
+
 	.modal-body {
 		padding: var(--space-md);
 		overflow-y: auto;
@@ -987,7 +1041,8 @@
 		color: var(--color-text-muted);
 	}
 
-	.modal input {
+	.modal input,
+	.modal select {
 		padding: 12px 14px;
 		min-width: 0;
 		border: 1px solid var(--color-border);
@@ -1000,7 +1055,8 @@
 		color-scheme: dark;
 	}
 
-	.modal input:focus {
+	.modal input:focus,
+	.modal select:focus {
 		border-color: var(--color-primary);
 	}
 
@@ -1009,7 +1065,8 @@
 		color: var(--color-danger, #ef4444);
 	}
 
-	.modal input.input-error {
+	.modal input.input-error,
+	.modal select.input-error {
 		border-color: var(--color-danger, #ef4444);
 	}
 
