@@ -60,10 +60,17 @@ export interface CarRentalItem {
 
 export type ItineraryItem = ActivityItem | FlightItem | HotelItem | CarRentalItem;
 
+export interface ChecklistState {
+	id: string;
+	label: string;
+	color: string;
+}
+
 export interface ChecklistItem {
 	id: string;
 	label: string;
 	checked: boolean;
+	stateId?: string;
 }
 
 export type RSVPStatus = 'going' | 'maybe' | 'not-going' | 'pending';
@@ -97,5 +104,7 @@ export interface Event {
 	itinerary: ItineraryItem[];
 	dayTitles?: Record<string, string>;
 	checklist?: ChecklistItem[];
+	checklistStates?: ChecklistState[];
+	checklistMode?: 'simple' | 'states';
 	createdAt: string;
 }

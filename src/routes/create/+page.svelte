@@ -814,6 +814,7 @@
 
 	.day-add-row {
 		display: flex;
+		justify-content: center;
 		margin-top: var(--space-sm);
 	}
 

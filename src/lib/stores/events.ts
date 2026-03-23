@@ -402,6 +402,8 @@ function loadEvents(): Event[] {
 				...e,
 				tribeGroups: (e as any).tribeGroups ?? [],
 				checklist: (e as any).checklist ?? undefined,
+				checklistStates: (e as any).checklistStates ?? undefined,
+				checklistMode: (e as any).checklistMode ?? undefined,
 				tribe: (e.tribe ?? []).map((m: any) => ({
 					...m,
 					firstName: m.firstName ?? (m.name ? m.name.split(' ')[0] : ''),
@@ -557,3 +559,24 @@ export function deleteTribeMember(eventId: string, memberId: string) {
 export function getEventById(id: string): Event | undefined {
 	return get(events).find((e) => e.id === id);
 }
+
+// Shared persisted state for event details expand/collapse
+const DETAILS_EXPANDED_KEY = 'tribe-details-expanded';
+
+function loadDetailsExpanded(): boolean {
+	if (!browser) return true;
+	try {
+		const stored = localStorage.getItem(DETAILS_EXPANDED_KEY);
+		if (stored !== null) return JSON.parse(stored);
+	} catch {}
+	return true;
+}
+
+export const detailsExpanded = writable<boolean>(loadDetailsExpanded());
+
+detailsExpanded.subscribe((value) => {
+	if (!browser) return;
+	try {
+		localStorage.setItem(DETAILS_EXPANDED_KEY, JSON.stringify(value));
+	} catch {}
+});

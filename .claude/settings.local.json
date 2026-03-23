@@ -12,7 +12,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(npx svelte-check:*)",
       "Bash(wc -l:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx vite build:*)"
     ]
   }
 }
