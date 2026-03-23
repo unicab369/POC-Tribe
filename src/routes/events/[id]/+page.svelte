@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { events, updateItineraryItem, addItineraryItem, addTribeMember, updateEvent } from '$lib/stores/events';
+	import { events, updateItineraryItem, addItineraryItem, addTribeMember, updateEvent, addTribeGroup, deleteTribeGroup, assignMemberToTribe, updateTribeMember, deleteTribeMember } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
 	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate, generateId } from '$lib/utils';
-	import type { Event, ItineraryItem, RSVPStatus, ItemStatus, FlightItem } from '$lib/types';
+	import type { Event, ItineraryItem, RSVPStatus, ItemStatus, FlightItem, TribeMember } from '$lib/types';
 
 	let event = $derived($events.find((e) => e.id === page.params.id));
 	let dayCount = $derived(event ? getDayCount(event.startDate, event.endDate) : 0);
@@ -146,17 +146,137 @@
 	let memberPhone = $state('');
 	let showMemberErrors = $state(false);
 
+	// Tribe management
+	let tribeManageMode = $state(false);
+	let newTribeName = $state('');
+	let selectedTribeId = $state<string | null>(null);
+	let pendingAssignments = $state<Set<string>>(new Set());
+
+	function selectTribeForAssign(groupId: string) {
+		selectedTribeId = groupId;
+		pendingAssignments = new Set();
+	}
+
+	function cancelTribeAssign() {
+		selectedTribeId = null;
+		pendingAssignments = new Set();
+	}
+
+	function saveTribeAssign() {
+		if (!event || !selectedTribeId) return;
+		for (const memberId of pendingAssignments) {
+			assignMemberToTribe(event.id, memberId, selectedTribeId);
+		}
+		selectedTribeId = null;
+		pendingAssignments = new Set();
+	}
+
+	function togglePendingAssignment(memberId: string) {
+		const next = new Set(pendingAssignments);
+		if (next.has(memberId)) {
+			next.delete(memberId);
+		} else {
+			next.add(memberId);
+		}
+		pendingAssignments = next;
+	}
+
+	let unassignedMembers = $derived(event ? event.tribe.filter((m) => !m.tribeId) : []);
+
+	let groupedMembers = $derived.by(() => {
+		if (!event || event.tribeGroups.length === 0) return [];
+		const groups: { id: string | null; name: string; members: TribeMember[] }[] = [];
+		for (const g of event.tribeGroups) {
+			groups.push({ id: g.id, name: g.name, members: event.tribe.filter((m) => m.tribeId === g.id) });
+		}
+		const unassigned = event.tribe.filter((m) => !m.tribeId);
+		groups.push({ id: null, name: 'Unassigned', members: unassigned });
+		return groups;
+	});
+
+	function addNewTribeGroup() {
+		if (!event || !newTribeName.trim()) return;
+		addTribeGroup(event.id, newTribeName.trim());
+		newTribeName = '';
+	}
+
+	let memberTribeId = $state('');
+
 	function startAddMember() {
 		memberFirstName = '';
 		memberLastName = '';
 		memberEmail = '';
 		memberPhone = '';
+		memberTribeId = '';
 		showMemberErrors = false;
 		addingMember = true;
 	}
 
 	function cancelAddMember() {
 		addingMember = false;
+	}
+
+	// View / edit member
+	let viewingMemberId = $state<string | null>(null);
+	let editingMember = $state(false);
+	let editMemberFirstName = $state('');
+	let editMemberLastName = $state('');
+	let editMemberEmail = $state('');
+	let editMemberPhone = $state('');
+	let editMemberRsvp = $state<RSVPStatus>('pending');
+	let editMemberTribeId = $state('');
+	let showEditMemberErrors = $state(false);
+
+	let viewingMember = $derived(event?.tribe.find((m) => m.id === viewingMemberId) ?? null);
+
+	function openMemberDetail(memberId: string) {
+		viewingMemberId = memberId;
+		editingMember = false;
+	}
+
+	function closeMemberDetail() {
+		viewingMemberId = null;
+		editingMember = false;
+	}
+
+	function startEditMember() {
+		if (!viewingMember) return;
+		editMemberFirstName = viewingMember.firstName;
+		editMemberLastName = viewingMember.lastName;
+		editMemberEmail = viewingMember.email ?? '';
+		editMemberPhone = viewingMember.phone ?? '';
+		editMemberRsvp = viewingMember.rsvp;
+		editMemberTribeId = viewingMember.tribeId ?? '';
+		showEditMemberErrors = false;
+		editingMember = true;
+	}
+
+	function cancelEditMember() {
+		editingMember = false;
+	}
+
+	function saveEditMember() {
+		if (!editMemberFirstName.trim() || !editMemberLastName.trim()) {
+			showEditMemberErrors = true;
+			return;
+		}
+		if (!event || !viewingMemberId) return;
+		updateTribeMember(event.id, viewingMemberId, {
+			firstName: editMemberFirstName.trim(),
+			lastName: editMemberLastName.trim(),
+			email: editMemberEmail.trim() || undefined,
+			phone: editMemberPhone.trim() || undefined,
+			rsvp: editMemberRsvp,
+			tribeId: editMemberTribeId || undefined
+		});
+		editingMember = false;
+	}
+
+	function removeCurrentMember() {
+		if (!event || !viewingMemberId) return;
+		deleteTribeMember(event.id, viewingMemberId);
+		viewingMemberId = null;
+		editingMember = false;
 	}
 
 	function saveMember() {
@@ -170,7 +290,8 @@
 			lastName: memberLastName.trim(),
 			email: memberEmail.trim() || undefined,
 			phone: memberPhone.trim() || undefined,
-			rsvp: 'pending'
+			rsvp: 'pending',
+			tribeId: memberTribeId || undefined
 		});
 		addingMember = false;
 	}
@@ -296,6 +417,19 @@
 		cancelAddItem();
 	}
 
+	// Print style switching
+	const printStyles = ['classic', 'modern', 'elegant', 'minimal', 'botanical', 'retro', 'midnight'] as const;
+	let printStyleIndex = $state(0);
+	let printStyle = $derived(printStyles[printStyleIndex]);
+
+	function prevStyle() {
+		printStyleIndex = (printStyleIndex - 1 + printStyles.length) % printStyles.length;
+	}
+
+	function nextStyle() {
+		printStyleIndex = (printStyleIndex + 1) % printStyles.length;
+	}
+
 	const categoryColors: Record<Event['category'], string> = {
 		social: '#8b5cf6',
 		business: '#3b82f6',
@@ -316,7 +450,7 @@
 				</svg>
 			</a>
 			<h1 class="page-title">{event.title}</h1>
-			<button class="tribe-btn" onclick={openTribe} aria-label="View Tribe">
+			<button class="tribe-btn" onclick={openTribe} aria-label="View Members">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
 					<circle cx="9" cy="7" r="4" />
@@ -326,19 +460,6 @@
 				{#if event.tribe.length > 0}
 					<span class="tribe-count">{event.tribe.length}</span>
 				{/if}
-			</button>
-			<button class="edit-btn" onclick={openPrint} aria-label="Print Event">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="6 9 6 2 18 2 18 9" />
-					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-					<rect x="6" y="14" width="12" height="8" />
-				</svg>
-			</button>
-			<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-					<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-				</svg>
 			</button>
 		</div>
 
@@ -372,14 +493,31 @@
 						<path d="M23 21v-2a4 4 0 0 0-3-3.87" />
 						<path d="M16 3.13a4 4 0 0 1 0 7.75" />
 					</svg>
-					<span>{event.tribe.length} tribe</span>
+					<span>{event.tribe.length} members</span>
 				</div>
 			</div>
 			<p class="event-description">{event.description}</p>
 		</header>
 
 		<section class="itinerary-section">
-			<h2>Agenda</h2>
+			<div class="agenda-header">
+				<h2>Agenda</h2>
+				<div class="agenda-actions">
+					<button class="edit-btn" onclick={openPrint} aria-label="Print Event">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="6 9 6 2 18 2 18 9" />
+							<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+							<rect x="6" y="14" width="12" height="8" />
+						</svg>
+					</button>
+					<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+						</svg>
+					</button>
+				</div>
+			</div>
 			{#each dates as date, i}
 				{@const dayItems = getItemsForDate(event.itinerary, date)}
 				<div class="day-section">
@@ -540,12 +678,128 @@
 			<div class="modal-overlay" onclick={handleTribeOverlayClick} onkeydown={() => {}}>
 				<div class="modal">
 					<div class="modal-header">
-						<h3>Tribe</h3>
+						{#if tribeManageMode}
+							<h3>Manage Tribes</h3>
+						{:else if viewingMemberId && viewingMember}
+							<h3>{editingMember ? 'Edit Member' : viewingMember.firstName + ' ' + viewingMember.lastName}</h3>
+						{:else}
+							<div class="modal-header-row">
+								<h3>Members</h3>
+								<button class="tribe-manage-btn" onclick={() => (tribeManageMode = true)}>Tribes</button>
+							</div>
+						{/if}
 					</div>
 					<div class="modal-body">
-						{#if addingMember}
+						{#if tribeManageMode && selectedTribeId}
+							{@const selectedGroup = event.tribeGroups.find((g) => g.id === selectedTribeId)}
+							<div class="manage-section-title">Add to {selectedGroup?.name ?? 'Tribe'}</div>
+							{#if unassignedMembers.length === 0}
+								<p class="empty-tribe">No unassigned members.</p>
+							{:else}
+								{#each unassignedMembers as member (member.id)}
+									<label class="assign-checkbox-row">
+										<div class="member-avatar" style="width: 28px; height: 28px; font-size: 0.65rem;">
+											{member.firstName[0]}{member.lastName[0]}
+										</div>
+										<span class="assign-member-name">{member.firstName} {member.lastName}</span>
+										<input type="checkbox" checked={pendingAssignments.has(member.id)} onchange={() => togglePendingAssignment(member.id)} />
+									</label>
+								{/each}
+							{/if}
+						{:else if tribeManageMode}
+							<div class="add-tribe-row">
+								<input type="text" bind:value={newTribeName} placeholder="New tribe name" onkeydown={(e) => { if (e.key === 'Enter') addNewTribeGroup(); }} />
+								<button class="btn-footer-add" onclick={addNewTribeGroup}>Add</button>
+							</div>
+							<div class="manage-section-title">Groups</div>
+							{#if event.tribeGroups.length === 0}
+								<p class="empty-tribe">No tribe groups yet.</p>
+							{:else}
+								{#each event.tribeGroups as group (group.id)}
+									<button class="tribe-group-row" onclick={() => selectTribeForAssign(group.id)}>
+										<span class="tribe-group-name">{group.name}</span>
+										<span class="tribe-section-count">{event.tribe.filter((m) => m.tribeId === group.id).length}</span>
+										<span class="tribe-group-delete" role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); deleteTribeGroup(event.id, group.id); }} onkeydown={() => {}} aria-label="Delete group">&times;</span>
+									</button>
+								{/each}
+							{/if}
+						{:else if viewingMemberId && viewingMember}
+							{#if editingMember}
+								<div class="add-member-form">
+									<div class="member-field-row">
+										<div class="member-field">
+											<label class="member-label required">First Name</label>
+											<input type="text" bind:value={editMemberFirstName} placeholder="First name" class:input-error={showEditMemberErrors && !editMemberFirstName.trim()} />
+										</div>
+										<div class="member-field">
+											<label class="member-label required">Last Name</label>
+											<input type="text" bind:value={editMemberLastName} placeholder="Last name" class:input-error={showEditMemberErrors && !editMemberLastName.trim()} />
+										</div>
+									</div>
+									<div class="member-field">
+										<label class="member-label">Email</label>
+										<input type="email" bind:value={editMemberEmail} placeholder="Email address" />
+									</div>
+									<div class="member-field">
+										<label class="member-label">Phone</label>
+										<input type="tel" bind:value={editMemberPhone} placeholder="Phone number" />
+									</div>
+									<div class="member-field">
+										<label class="member-label">RSVP</label>
+										<select bind:value={editMemberRsvp}>
+											<option value="going">Going</option>
+											<option value="maybe">Maybe</option>
+											<option value="not-going">Not Going</option>
+											<option value="pending">Pending</option>
+										</select>
+									</div>
+									{#if event.tribeGroups.length > 0}
+										<div class="member-field">
+											<label class="member-label">Tribe</label>
+											<select bind:value={editMemberTribeId}>
+												<option value="">Unassigned</option>
+												{#each event.tribeGroups as group (group.id)}
+													<option value={group.id}>{group.name}</option>
+												{/each}
+											</select>
+										</div>
+									{/if}
+								</div>
+							{:else}
+								<div class="member-detail">
+									<div class="member-detail-header">
+										<div class="member-avatar member-avatar-lg">
+											{viewingMember.firstName[0]}{viewingMember.lastName[0]}
+										</div>
+										<div class="member-detail-name">{viewingMember.firstName} {viewingMember.lastName}</div>
+										<span class="rsvp-badge" style="background-color: {rsvpColors[viewingMember.rsvp]}">{rsvpLabels[viewingMember.rsvp]}</span>
+									</div>
+									<div class="member-detail-fields">
+										{#if viewingMember.email}
+											<div class="member-detail-row">
+												<span class="member-detail-label">Email</span>
+												<span class="member-detail-value">{viewingMember.email}</span>
+											</div>
+										{/if}
+										{#if viewingMember.phone}
+											<div class="member-detail-row">
+												<span class="member-detail-label">Phone</span>
+												<span class="member-detail-value">{viewingMember.phone}</span>
+											</div>
+										{/if}
+										{#if event.tribeGroups.length > 0}
+											{@const tribeName = event.tribeGroups.find((g) => g.id === viewingMember.tribeId)?.name ?? 'Unassigned'}
+											<div class="member-detail-row">
+												<span class="member-detail-label">Tribe</span>
+												<span class="member-detail-value">{tribeName}</span>
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/if}
+						{:else if addingMember}
 							<div class="add-member-form">
-								<div class="add-member-title">Add Tribe Member</div>
+								<div class="add-member-title">Add Member</div>
 								<div class="member-field-row">
 									<div class="member-field">
 										<label class="member-label required">First Name</label>
@@ -564,13 +818,51 @@
 									<label class="member-label">Phone</label>
 									<input type="tel" bind:value={memberPhone} placeholder="Phone number" />
 								</div>
-								</div>
+								{#if event.tribeGroups.length > 0}
+									<div class="member-field">
+										<label class="member-label">Tribe</label>
+										<select bind:value={memberTribeId}>
+											<option value="">Unassigned</option>
+											{#each event.tribeGroups as group (group.id)}
+												<option value={group.id}>{group.name}</option>
+											{/each}
+										</select>
+									</div>
+								{/if}
+							</div>
 						{:else if event.tribe.length === 0}
-							<p class="empty-tribe">No tribe members yet.</p>
+							<p class="empty-tribe">No members yet.</p>
+						{:else if groupedMembers.length > 0}
+							<div class="tribe-list">
+								{#each groupedMembers as group (group.id ?? '__unassigned')}
+									<div class="tribe-section-header">
+										<span class="tribe-section-name">{group.name}</span>
+										<span class="tribe-section-count">{group.members.length}</span>
+									</div>
+									{#if group.members.length === 0}
+										<p class="empty-group-hint">No members in this group</p>
+									{:else}
+										{#each group.members as member (member.id)}
+											<button class="tribe-member tribe-member-clickable" onclick={() => openMemberDetail(member.id)}>
+												<div class="member-avatar">
+													{member.firstName[0]}{member.lastName[0]}
+												</div>
+												<div class="member-info">
+													<span class="member-name">{member.firstName} {member.lastName}</span>
+													{#if member.email || member.phone}
+														<span class="member-contact">{member.email || member.phone}</span>
+													{/if}
+												</div>
+												<span class="rsvp-badge" style="background-color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
+											</button>
+										{/each}
+									{/if}
+								{/each}
+							</div>
 						{:else}
 							<div class="tribe-list">
 								{#each event.tribe as member (member.id)}
-									<div class="tribe-member">
+									<button class="tribe-member tribe-member-clickable" onclick={() => openMemberDetail(member.id)}>
 										<div class="member-avatar">
 											{member.firstName[0]}{member.lastName[0]}
 										</div>
@@ -581,13 +873,24 @@
 											{/if}
 										</div>
 										<span class="rsvp-badge" style="background-color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
-									</div>
+									</button>
 								{/each}
 							</div>
 						{/if}
 					</div>
 					<div class="modal-footer">
-						{#if addingMember}
+						{#if tribeManageMode && selectedTribeId}
+							<button class="btn-footer-add" onclick={saveTribeAssign}>Save</button>
+							<button class="btn-footer-close" onclick={cancelTribeAssign}>Cancel</button>
+						{:else if tribeManageMode}
+							<button class="btn-footer-add" onclick={() => (tribeManageMode = false)}>Done</button>
+						{:else if viewingMemberId && editingMember}
+							<button class="btn-footer-add" onclick={saveEditMember}>Save</button>
+							<button class="btn-footer-close" onclick={cancelEditMember}>Cancel</button>
+						{:else if viewingMemberId}
+							<button class="btn-footer-add" onclick={startEditMember}>Edit</button>
+							<button class="btn-footer-close" onclick={closeMemberDetail}>Back</button>
+						{:else if addingMember}
 							<button class="btn-footer-add" onclick={saveMember}>Add</button>
 							<button class="btn-footer-close" onclick={cancelAddMember}>Cancel</button>
 						{:else}
@@ -655,10 +958,22 @@
 			<div class="modal-overlay" onclick={handlePrintOverlayClick} onkeydown={() => {}}>
 				<div class="modal">
 					<div class="modal-header">
-						<h3>Print Preview</h3>
+						<div class="style-switcher">
+							<button class="style-chevron" onclick={prevStyle} aria-label="Previous style">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="15 18 9 12 15 6" />
+								</svg>
+							</button>
+							<span class="style-label">{printStyle[0].toUpperCase() + printStyle.slice(1)}</span>
+							<button class="style-chevron" onclick={nextStyle} aria-label="Next style">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="9 18 15 12 9 6" />
+								</svg>
+							</button>
+						</div>
 					</div>
 					<div class="modal-body">
-						<div class="print-content">
+						<div class="print-content print-style-{printStyle}">
 							<h2 class="print-title">{event.title}</h2>
 							<div class="print-meta">
 								<span>{formatDateRange(event.startDate, event.endDate)}{#if dayCount > 1} &middot; {dayCount} days{/if}</span>
@@ -718,17 +1033,6 @@
 								</div>
 							{/each}
 
-							{#if event.tribe.length > 0}
-								<h3 class="print-section-title">Tribe</h3>
-								<div class="print-tribe-list">
-									{#each event.tribe as member}
-										<div class="print-tribe-member">
-											<span class="print-member-name">{member.firstName} {member.lastName}</span>
-											<span class="print-member-rsvp" style="color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
-										</div>
-									{/each}
-								</div>
-							{/if}
 						</div>
 					</div>
 					<div class="modal-footer">
@@ -857,13 +1161,25 @@
 		line-height: 1.6;
 	}
 
+	.agenda-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--space-md);
+		padding-bottom: var(--space-sm);
+		border-bottom: 1px solid var(--color-border);
+	}
+
 	.itinerary-section h2 {
 		font-size: var(--font-xl);
 		font-weight: 600;
-		margin-bottom: var(--space-md);
-		text-align: center;
-		padding-bottom: var(--space-sm);
-		border-bottom: 1px solid var(--color-border);
+		text-align: left;
+	}
+
+	.agenda-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-xs);
 	}
 
 	.day-section {
@@ -1234,19 +1550,22 @@
 		color: var(--color-danger, #ef4444);
 	}
 
-	.add-member-form input {
+	.add-member-form input,
+	.add-member-form select {
 		padding: 12px 14px;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		background: var(--color-bg);
 		color: var(--color-text);
 		font-size: var(--font-base);
+		font-family: inherit;
 		outline: none;
 		transition: border-color 0.2s;
 		color-scheme: dark;
 	}
 
-	.add-member-form input:focus {
+	.add-member-form input:focus,
+	.add-member-form select:focus {
 		border-color: var(--color-primary);
 	}
 
@@ -1316,9 +1635,41 @@
 		border-color: var(--color-danger, #ef4444);
 	}
 
-	/* Print preview content */
+	/* Style switcher */
+	.style-switcher {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-md);
+	}
+
+	.style-chevron {
+		background: none;
+		border: none;
+		color: var(--color-text);
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+	}
+
+	.style-chevron svg {
+		width: 22px;
+		height: 22px;
+	}
+
+	.style-label {
+		font-size: var(--font-lg);
+		font-weight: 700;
+		color: var(--color-text);
+		min-width: 80px;
+		text-align: center;
+	}
+
+	/* Print preview content — shared base */
 	.print-content {
-		padding: var(--space-sm) 0;
+		padding: var(--space-md);
 	}
 
 	.print-title {
@@ -1346,8 +1697,6 @@
 		font-size: var(--font-base);
 		line-height: 1.6;
 		margin-bottom: var(--space-md);
-		padding-bottom: var(--space-md);
-		border-bottom: 1px solid var(--color-border);
 	}
 
 	.print-section-title {
@@ -1356,7 +1705,6 @@
 		color: var(--color-text);
 		margin-bottom: var(--space-sm);
 		padding-bottom: var(--space-xs);
-		border-bottom: 1px solid var(--color-border);
 	}
 
 	.print-day {
@@ -1378,7 +1726,6 @@
 
 	.print-item {
 		padding: var(--space-sm) var(--space-sm);
-		border-left: 3px solid var(--color-border);
 		margin-bottom: var(--space-xs);
 	}
 
@@ -1405,33 +1752,852 @@
 		font-style: italic;
 	}
 
-	.print-tribe-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-xs);
+	/* ===== Style 1: Classic ===== */
+	.print-style-classic {
+		font-family: Georgia, 'Times New Roman', serif;
+		text-align: center;
+		border: 3px double var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-lg);
+		background: var(--color-surface);
 	}
 
-	.print-tribe-member {
-		display: flex;
-		justify-content: space-between;
+	.print-style-classic .print-title {
+		font-size: 1.75rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+		color: #5c4033;
+	}
+
+	.print-style-classic .print-meta {
 		align-items: center;
+		color: #7a6555;
+		padding-bottom: var(--space-sm);
+		border-bottom: 1px solid #c9b99a;
+		margin-bottom: var(--space-md);
+	}
+
+	.print-style-classic .print-category {
+		font-style: italic;
+	}
+
+	.print-style-classic .print-description {
+		color: #7a6555;
+		font-style: italic;
+		border-bottom: 1px solid #c9b99a;
+		padding-bottom: var(--space-md);
+	}
+
+	.print-style-classic .print-section-title {
+		color: #5c4033;
+		border-bottom: 1px solid #c9b99a;
+		text-align: center;
+	}
+
+	.print-style-classic .print-day-header {
+		color: #5c4033;
+		text-align: center;
 		padding: var(--space-xs) 0;
+		border-bottom: 1px dashed #c9b99a;
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-style-classic .print-item {
+		border-left: 2px solid #c9b99a;
+		text-align: left;
+	}
+
+	.print-style-classic .print-item-type {
+		color: #8b7355;
+	}
+
+	.print-style-classic .print-item-title {
+		color: #5c4033;
+	}
+
+	.print-style-classic .print-item-detail {
+		color: #7a6555;
+	}
+
+	/* ===== Style 2: Modern ===== */
+	.print-style-modern {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		text-align: left;
+		border-top: 5px solid var(--color-primary);
+		border-radius: var(--radius-md);
+		padding: var(--space-lg);
+		background: var(--color-surface);
+	}
+
+	.print-style-modern .print-title {
+		font-size: 1.75rem;
+		font-weight: 800;
+		letter-spacing: -0.02em;
+	}
+
+	.print-style-modern .print-meta {
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--space-sm);
+		align-items: center;
+	}
+
+	.print-style-modern .print-category {
+		background: var(--color-primary);
+		color: white;
+		padding: 2px 10px;
+		border-radius: var(--radius-full);
+		font-size: 0.7rem;
+		font-weight: 700;
+	}
+
+	.print-style-modern .print-description {
+		border-left: 3px solid var(--color-primary);
+		padding-left: var(--space-md);
+		margin-bottom: var(--space-lg);
+	}
+
+	.print-style-modern .print-section-title {
+		font-size: var(--font-xl);
+		font-weight: 800;
+		letter-spacing: -0.01em;
+		border-bottom: 2px solid var(--color-primary);
+		padding-bottom: var(--space-xs);
+	}
+
+	.print-style-modern .print-day-header {
+		font-weight: 700;
+		font-size: var(--font-base);
+		padding: var(--space-xs) var(--space-sm);
+		background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+		border-radius: var(--radius-sm);
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-style-modern .print-item {
+		border-left: 3px solid var(--color-primary);
+		padding: var(--space-sm) var(--space-md);
+	}
+
+	/* ===== Style 3: Elegant ===== */
+	.print-style-elegant {
+		font-family: Georgia, 'Times New Roman', serif;
+		text-align: center;
+		padding: var(--space-lg);
+		background: var(--color-surface);
+		border-top: 3px solid #d4a574;
+		border-bottom: 3px solid #d4a574;
+		position: relative;
+	}
+
+	.print-style-elegant::before,
+	.print-style-elegant::after {
+		content: '\2726 \2726 \2726';
+		display: block;
+		text-align: center;
+		color: #d4a574;
+		font-size: 1rem;
+		letter-spacing: 0.5em;
+	}
+
+	.print-style-elegant::before {
+		margin-bottom: var(--space-md);
+	}
+
+	.print-style-elegant::after {
+		margin-top: var(--space-md);
+	}
+
+	.print-style-elegant .print-title {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #d4a574;
+		letter-spacing: 0.04em;
+	}
+
+	.print-style-elegant .print-meta {
+		align-items: center;
+		color: #a08b76;
+	}
+
+	.print-style-elegant .print-category {
+		font-style: italic;
+		color: #d4a574;
+		font-weight: 600;
+	}
+
+	.print-style-elegant .print-description {
+		font-style: italic;
+		color: #a08b76;
+		max-width: 85%;
+		margin-left: auto;
+		margin-right: auto;
+		line-height: 1.8;
+	}
+
+	.print-style-elegant .print-section-title {
+		color: #d4a574;
+		border-bottom: 1px solid #d4a574;
+		display: inline-block;
+		padding: 0 var(--space-lg) var(--space-xs);
+		margin-bottom: var(--space-md);
+	}
+
+	.print-style-elegant .print-day-header {
+		color: #d4a574;
+		font-style: italic;
+		text-align: center;
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-style-elegant .print-item {
+		border-left: 2px solid #d4a574;
+		text-align: left;
+	}
+
+	.print-style-elegant .print-item-type {
+		color: #d4a574;
+	}
+
+	.print-style-elegant .print-item-title {
+		color: #8b7355;
+	}
+
+	.print-style-elegant .print-item-detail {
+		color: #a08b76;
+	}
+
+	/* ===== Style 4: Minimal ===== */
+	.print-style-minimal {
+		font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+		text-align: left;
+		padding: var(--space-lg);
+		background: var(--color-surface);
+	}
+
+	.print-style-minimal .print-title {
+		font-size: 1.5rem;
+		font-weight: 300;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-text);
+		padding-bottom: var(--space-sm);
+		border-bottom: 1px solid var(--color-text);
+	}
+
+	.print-style-minimal .print-meta {
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--space-sm);
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+	}
+
+	.print-style-minimal .print-meta span:not(:last-child)::after {
+		content: '/';
+		margin-left: var(--space-sm);
+		color: var(--color-border);
+	}
+
+	.print-style-minimal .print-category {
+		font-weight: 500;
+	}
+
+	.print-style-minimal .print-description {
+		color: var(--color-text-secondary);
+		font-weight: 300;
+		line-height: 1.7;
+	}
+
+	.print-style-minimal .print-section-title {
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+		border-bottom: none;
+		margin-top: var(--space-md);
+	}
+
+	.print-style-minimal .print-day-header {
+		font-size: var(--font-sm);
+		font-weight: 400;
+		color: var(--color-text);
+		letter-spacing: 0.02em;
+		padding-bottom: var(--space-xs);
 		border-bottom: 1px solid var(--color-border);
 	}
 
-	.print-tribe-member:last-child {
+	.print-style-minimal .print-item {
+		border-left: none;
+		padding: var(--space-xs) 0;
+		border-bottom: 1px dotted var(--color-border);
+	}
+
+	.print-style-minimal .print-item:last-child {
 		border-bottom: none;
 	}
 
-	.print-member-name {
+	.print-style-minimal .print-item-type {
+		font-size: 0.6rem;
+		font-weight: 500;
+		color: var(--color-text-muted);
+		letter-spacing: 0.08em;
+	}
+
+	.print-style-minimal .print-item-title {
+		font-weight: 400;
+	}
+
+	.print-style-minimal .print-item-detail {
+		font-weight: 300;
+	}
+
+	/* ===== Style 5: Botanical ===== */
+	.print-style-botanical {
+		font-family: Georgia, 'Times New Roman', serif;
+		text-align: center;
+		padding: var(--space-lg);
+		background: var(--color-surface);
+		border: 1px solid #7a9e7e;
+		border-radius: var(--radius-lg, 12px);
+		position: relative;
+	}
+
+	.print-style-botanical::before {
+		content: '\2E19  \2740  \2E19';
+		display: block;
+		text-align: center;
+		color: #7a9e7e;
+		font-size: 1.2rem;
+		letter-spacing: 0.3em;
+		margin-bottom: var(--space-md);
+	}
+
+	.print-style-botanical::after {
+		content: '\2E19  \2740  \2E19';
+		display: block;
+		text-align: center;
+		color: #7a9e7e;
+		font-size: 1.2rem;
+		letter-spacing: 0.3em;
+		margin-top: var(--space-md);
+	}
+
+	.print-style-botanical .print-title {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #3d6b41;
+		letter-spacing: 0.02em;
+	}
+
+	.print-style-botanical .print-meta {
+		align-items: center;
+		color: #6b8f6e;
+	}
+
+	.print-style-botanical .print-category {
+		color: #7a9e7e;
+		font-style: italic;
+		font-weight: 600;
+	}
+
+	.print-style-botanical .print-description {
+		color: #5a7d5e;
+		font-style: italic;
+		line-height: 1.8;
+		max-width: 90%;
+		margin-left: auto;
+		margin-right: auto;
+		padding-bottom: var(--space-md);
+		border-bottom: 1px solid #b5d3b8;
+	}
+
+	.print-style-botanical .print-section-title {
+		color: #3d6b41;
+		border-bottom: 1px solid #b5d3b8;
+		display: inline-block;
+		padding: 0 var(--space-lg) var(--space-xs);
+	}
+
+	.print-style-botanical .print-day-header {
+		color: #3d6b41;
+		font-style: italic;
+		text-align: center;
+		padding: var(--space-xs) 0;
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-style-botanical .print-item {
+		border-left: 2px solid #b5d3b8;
+		text-align: left;
+	}
+
+	.print-style-botanical .print-item-type {
+		color: #7a9e7e;
+	}
+
+	.print-style-botanical .print-item-title {
+		color: #3d6b41;
+	}
+
+	.print-style-botanical .print-item-detail {
+		color: #5a7d5e;
+	}
+
+	/* ===== Style 6: Retro ===== */
+	.print-style-retro {
+		font-family: 'Courier New', Courier, monospace;
+		text-align: left;
+		padding: var(--space-lg);
+		background: var(--color-surface);
+		border: 2px solid var(--color-text);
+		position: relative;
+	}
+
+	.print-style-retro::before {
+		content: '* * * * * * * * * * * * * * * * * * * *';
+		display: block;
+		text-align: center;
+		color: var(--color-text-muted);
+		font-size: 0.7rem;
+		letter-spacing: 0.15em;
+		margin-bottom: var(--space-md);
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.print-style-retro::after {
+		content: '* * * * * * * * * * * * * * * * * * * *';
+		display: block;
+		text-align: center;
+		color: var(--color-text-muted);
+		font-size: 0.7rem;
+		letter-spacing: 0.15em;
+		margin-top: var(--space-md);
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	.print-style-retro .print-title {
+		font-size: 1.5rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text);
+	}
+
+	.print-style-retro .print-meta {
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
+	}
+
+	.print-style-retro .print-category {
+		text-transform: uppercase;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+	}
+
+	.print-style-retro .print-description {
+		color: var(--color-text-secondary);
+		padding-bottom: var(--space-sm);
+		border-bottom: 2px dashed var(--color-text-muted);
+	}
+
+	.print-style-retro .print-section-title {
+		font-size: var(--font-base);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text);
+		border-bottom: 2px solid var(--color-text);
+		padding-bottom: var(--space-xs);
+	}
+
+	.print-style-retro .print-day-header {
+		font-weight: 700;
+		font-size: var(--font-sm);
+		color: var(--color-text);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: var(--space-xs) 0;
+		border-bottom: 1px dashed var(--color-text-muted);
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-style-retro .print-item {
+		border-left: 3px solid var(--color-text-muted);
+		padding: var(--space-xs) var(--space-sm);
+	}
+
+	.print-style-retro .print-item-type {
+		font-size: 0.65rem;
+		font-weight: 700;
+		color: var(--color-text-secondary);
+	}
+
+	.print-style-retro .print-item-title {
+		font-weight: 700;
+	}
+
+	/* ===== Style 7: Midnight ===== */
+	.print-style-midnight {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		text-align: center;
+		padding: var(--space-lg);
+		background: #1a1a2e;
+		border-radius: var(--radius-lg, 12px);
+		color: #e0d6ff;
+	}
+
+	.print-style-midnight .print-title {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #c4b5fd;
+		letter-spacing: 0.02em;
+	}
+
+	.print-style-midnight .print-meta {
+		align-items: center;
+		color: #a89cc8;
+	}
+
+	.print-style-midnight .print-category {
+		background: #7c3aed;
+		color: white;
+		padding: 2px 10px;
+		border-radius: var(--radius-full);
+		font-size: 0.7rem;
+		font-weight: 700;
+	}
+
+	.print-style-midnight .print-description {
+		color: #a89cc8;
+		line-height: 1.7;
+		max-width: 90%;
+		margin-left: auto;
+		margin-right: auto;
+		padding-bottom: var(--space-md);
+		border-bottom: 1px solid #2d2b55;
+	}
+
+	.print-style-midnight .print-section-title {
+		color: #c4b5fd;
+		border-bottom: 1px solid #2d2b55;
+		padding-bottom: var(--space-xs);
+	}
+
+	.print-style-midnight .print-day-header {
+		color: #c4b5fd;
+		font-weight: 600;
+		padding: var(--space-xs) var(--space-sm);
+		background: #2d2b55;
+		border-radius: var(--radius-sm);
+		margin-bottom: var(--space-sm);
+		text-align: center;
+	}
+
+	.print-style-midnight .print-item {
+		border-left: 3px solid #7c3aed;
+		text-align: left;
+		background: #16213e;
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+		padding: var(--space-sm) var(--space-md);
+	}
+
+	.print-style-midnight .print-item-type {
+		color: #a78bfa;
+	}
+
+	.print-style-midnight .print-item-title {
+		color: #e0d6ff;
+	}
+
+	.print-style-midnight .print-item-detail {
+		color: #a89cc8;
+	}
+
+	.print-style-midnight .print-empty {
+		color: #6b6190;
+	}
+
+	/* Tribe management styles */
+	.modal-header-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.modal-header-row h3 {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.tribe-manage-btn {
+		padding: 4px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-full);
+		background: none;
+		color: var(--color-text-secondary);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.tribe-manage-btn:hover {
+		border-color: var(--color-primary);
+		color: var(--color-primary);
+	}
+
+	.tribe-member-clickable {
+		background: none;
+		width: 100%;
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.15s;
+	}
+
+	.tribe-member-clickable:hover {
+		background: var(--color-bg);
+	}
+
+	/* Member detail view */
+	.member-detail {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+
+	.member-detail-header {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-md) 0;
+	}
+
+	.member-avatar-lg {
+		width: 64px;
+		height: 64px;
+		font-size: 1.25rem;
+	}
+
+	.member-detail-name {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.member-detail-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.member-detail-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--space-sm) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.member-detail-row:last-child {
+		border-bottom: none;
+	}
+
+	.member-detail-label {
+		font-size: var(--font-sm);
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.member-detail-value {
+		font-size: var(--font-base);
+		color: var(--color-text);
+	}
+
+	.tribe-section-header {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-sm) 0 var(--space-xs);
+		margin-top: var(--space-sm);
+	}
+
+	.tribe-section-header:first-child {
+		margin-top: 0;
+	}
+
+	.tribe-section-name {
+		font-size: var(--font-sm);
+		font-weight: 700;
+		color: var(--color-text);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.tribe-section-count {
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		background: var(--color-bg);
+		padding: 1px 7px;
+		border-radius: var(--radius-full);
+	}
+
+	.empty-group-hint {
+		font-size: var(--font-sm);
+		font-style: italic;
+		color: var(--color-text-muted);
+		padding: var(--space-xs) 0 var(--space-sm);
+	}
+
+	.tribe-group-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-sm) 0;
+		border: none;
+		border-bottom: 1px solid var(--color-border);
+		background: none;
+		width: 100%;
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.15s;
+	}
+
+	.tribe-group-row:hover {
+		background: var(--color-bg);
+	}
+
+	.tribe-group-name {
+		flex: 1;
 		font-size: var(--font-base);
 		font-weight: 500;
 		color: var(--color-text);
 	}
 
-	.print-member-rsvp {
+	.tribe-group-delete {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: 1.2rem;
+		cursor: pointer;
+		padding: 2px 6px;
+		border-radius: var(--radius-sm);
+		line-height: 1;
+	}
+
+	.tribe-group-delete:hover {
+		color: var(--color-danger, #ef4444);
+	}
+
+	.add-tribe-row {
+		display: flex;
+		gap: var(--space-sm);
+		margin-top: var(--space-md);
+		margin-bottom: var(--space-lg);
+	}
+
+	.add-tribe-row input {
+		flex: 1;
+		padding: 10px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-base);
+		outline: none;
+		color-scheme: dark;
+	}
+
+	.add-tribe-row input:focus {
+		border-color: var(--color-primary);
+	}
+
+	.add-tribe-row .btn-footer-add {
+		flex: none;
+		padding: 10px 20px;
+	}
+
+	.assign-checkbox-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-sm) 0;
+		border-bottom: 1px solid var(--color-border);
+		cursor: pointer;
+	}
+
+	.assign-checkbox-row:last-child {
+		border-bottom: none;
+	}
+
+	.assign-checkbox-row input[type='checkbox'] {
+		width: 18px;
+		height: 18px;
+		padding: 0;
+		cursor: pointer;
+		accent-color: var(--color-primary);
+		flex-shrink: 0;
+	}
+
+	.assign-member-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: var(--space-xs) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.assign-member-row:last-child {
+		border-bottom: none;
+	}
+
+	.assign-member-name {
+		flex: 1;
 		font-size: var(--font-sm);
-		font-weight: 600;
+		font-weight: 500;
+		color: var(--color-text);
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.tribe-select {
+		padding: 6px 10px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-sm);
+		outline: none;
+		color-scheme: dark;
+		max-width: 140px;
+	}
+
+	.tribe-select:focus {
+		border-color: var(--color-primary);
+	}
+
+	.manage-section-title {
+		font-size: 0.7rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-bottom: var(--space-sm);
+		margin-top: var(--space-sm);
+	}
+
+	.manage-section-title:first-child {
+		margin-top: 0;
 	}
 
 	@media print {
@@ -1467,7 +2633,7 @@
 
 		.print-content {
 			display: block !important;
-			color: black !important;
+			background: white !important;
 		}
 
 		.print-title {
@@ -1484,7 +2650,6 @@
 
 		.print-section-title {
 			color: black !important;
-			border-color: #ccc !important;
 		}
 
 		.print-day-header {
@@ -1503,13 +2668,100 @@
 			color: #333 !important;
 		}
 
-		.print-member-name {
+		/* Classic print overrides */
+		.print-style-classic {
+			border-color: #999 !important;
+		}
+
+		.print-style-classic .print-title { color: #3a2a1a !important; }
+		.print-style-classic .print-meta { border-color: #ccc !important; }
+		.print-style-classic .print-description { border-color: #ccc !important; }
+		.print-style-classic .print-section-title { border-color: #ccc !important; }
+		.print-style-classic .print-day-header { border-color: #ccc !important; color: #3a2a1a !important; }
+
+		/* Modern print overrides */
+		.print-style-modern {
+			border-top-color: #333 !important;
+		}
+
+		.print-style-modern .print-category {
+			background: #333 !important;
+			color: white !important;
+		}
+
+		.print-style-modern .print-section-title { border-color: #333 !important; }
+		.print-style-modern .print-day-header { background: #f0f0f0 !important; color: #333 !important; }
+		.print-style-modern .print-description { border-color: #333 !important; }
+
+		/* Elegant print overrides */
+		.print-style-elegant {
+			border-color: #999 !important;
+		}
+
+		.print-style-elegant::before,
+		.print-style-elegant::after {
+			color: #999 !important;
+		}
+
+		.print-style-elegant .print-title { color: #666 !important; }
+		.print-style-elegant .print-section-title { border-color: #999 !important; color: #666 !important; }
+		.print-style-elegant .print-day-header { color: #666 !important; }
+		.print-style-elegant .print-item-type { color: #666 !important; }
+
+		/* Minimal print overrides */
+		.print-style-minimal .print-title { border-color: black !important; }
+		.print-style-minimal .print-item { border-color: #ccc !important; }
+		.print-style-minimal .print-day-header { border-color: #ccc !important; }
+
+		/* Botanical print overrides */
+		.print-style-botanical {
+			border-color: #5a8a5e !important;
+		}
+
+		.print-style-botanical::before,
+		.print-style-botanical::after {
+			color: #5a8a5e !important;
+		}
+
+		.print-style-botanical .print-title { color: #2a4d2e !important; }
+		.print-style-botanical .print-description { border-color: #ccc !important; color: #444 !important; }
+		.print-style-botanical .print-section-title { color: #2a4d2e !important; border-color: #aac8ad !important; }
+		.print-style-botanical .print-day-header { color: #2a4d2e !important; }
+		.print-style-botanical .print-item { border-color: #aac8ad !important; }
+		.print-style-botanical .print-item-type { color: #5a8a5e !important; }
+
+		/* Retro print overrides */
+		.print-style-retro {
+			border-color: black !important;
+		}
+
+		.print-style-retro::before,
+		.print-style-retro::after {
+			color: #999 !important;
+		}
+
+		.print-style-retro .print-description { border-color: #999 !important; }
+		.print-style-retro .print-section-title { border-color: black !important; }
+		.print-style-retro .print-day-header { border-color: #999 !important; }
+		.print-style-retro .print-item { border-color: #999 !important; }
+
+		/* Midnight print overrides */
+		.print-style-midnight {
+			background: white !important;
 			color: black !important;
 		}
 
-		.print-tribe-member {
-			border-color: #ccc !important;
-		}
+		.print-style-midnight .print-title { color: #333 !important; }
+		.print-style-midnight .print-meta { color: #555 !important; }
+		.print-style-midnight .print-category { background: #333 !important; color: white !important; }
+		.print-style-midnight .print-description { color: #444 !important; border-color: #ccc !important; }
+		.print-style-midnight .print-section-title { color: #333 !important; border-color: #ccc !important; }
+		.print-style-midnight .print-day-header { background: #f0f0f0 !important; color: #333 !important; }
+		.print-style-midnight .print-item { background: #fafafa !important; border-color: #666 !important; }
+		.print-style-midnight .print-item-title { color: black !important; }
+		.print-style-midnight .print-item-detail { color: #444 !important; }
+		.print-style-midnight .print-item-type { color: #555 !important; }
+		.print-style-midnight .print-empty { color: #999 !important; }
 	}
 
 </style>

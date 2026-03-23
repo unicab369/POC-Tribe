@@ -14,10 +14,14 @@ const mockEvents: Event[] = [
 		location: 'San Francisco to San Diego, CA',
 		category: 'travel',
 		attendees: 4,
+		tribeGroups: [
+			{ id: 'tg1', name: 'Road Trip Crew' },
+			{ id: 'tg2', name: 'Photographers' }
+		],
 		tribe: [
-			{ id: 't1', firstName: 'Alex', lastName: 'Chen', email: 'alex@email.com', rsvp: 'going' },
-			{ id: 't2', firstName: 'Jordan', lastName: 'Lee', phone: '555-0102', rsvp: 'going' },
-			{ id: 't3', firstName: 'Sam', lastName: 'Rivera', email: 'sam@email.com', phone: '555-0103', rsvp: 'going' },
+			{ id: 't1', firstName: 'Alex', lastName: 'Chen', email: 'alex@email.com', rsvp: 'going', tribeId: 'tg1' },
+			{ id: 't2', firstName: 'Jordan', lastName: 'Lee', phone: '555-0102', rsvp: 'going', tribeId: 'tg1' },
+			{ id: 't3', firstName: 'Sam', lastName: 'Rivera', email: 'sam@email.com', phone: '555-0103', rsvp: 'going', tribeId: 'tg2' },
 			{ id: 't4', firstName: 'Taylor', lastName: 'Kim', rsvp: 'maybe' }
 		],
 		itinerary: [
@@ -207,12 +211,17 @@ const mockEvents: Event[] = [
 		location: 'Napa Valley, CA',
 		category: 'wedding',
 		attendees: 150,
+		tribeGroups: [
+			{ id: 'tg3', name: 'Wedding Party' },
+			{ id: 'tg4', name: 'Family' },
+			{ id: 'tg5', name: 'College Friends' }
+		],
 		tribe: [
-			{ id: 't5', firstName: 'Sarah', lastName: 'Mitchell', email: 'sarah@email.com', rsvp: 'going' },
-			{ id: 't6', firstName: 'James', lastName: 'Park', email: 'james@email.com', rsvp: 'going' },
-			{ id: 't7', firstName: 'Emma', lastName: 'Wilson', phone: '555-0201', rsvp: 'going' },
-			{ id: 't8', firstName: 'Chris', lastName: 'Nguyen', rsvp: 'going' },
-			{ id: 't9', firstName: 'Mia', lastName: 'Johnson', email: 'mia@email.com', rsvp: 'maybe' },
+			{ id: 't5', firstName: 'Sarah', lastName: 'Mitchell', email: 'sarah@email.com', rsvp: 'going', tribeId: 'tg3' },
+			{ id: 't6', firstName: 'James', lastName: 'Park', email: 'james@email.com', rsvp: 'going', tribeId: 'tg3' },
+			{ id: 't7', firstName: 'Emma', lastName: 'Wilson', phone: '555-0201', rsvp: 'going', tribeId: 'tg4' },
+			{ id: 't8', firstName: 'Chris', lastName: 'Nguyen', rsvp: 'going', tribeId: 'tg5' },
+			{ id: 't9', firstName: 'Mia', lastName: 'Johnson', email: 'mia@email.com', rsvp: 'maybe', tribeId: 'tg5' },
 			{ id: 't10', firstName: 'David', lastName: 'Brown', rsvp: 'pending' },
 			{ id: 't11', firstName: 'Olivia', lastName: 'Garcia', phone: '555-0204', rsvp: 'not-going' }
 		],
@@ -318,6 +327,7 @@ const mockEvents: Event[] = [
 		location: 'Innovation Hub, 3rd Floor',
 		category: 'business',
 		attendees: 85,
+		tribeGroups: [],
 		tribe: [
 			{ id: 't12', firstName: 'Ryan', lastName: 'Torres', email: 'ryan@email.com', rsvp: 'going' },
 			{ id: 't13', firstName: 'Lisa', lastName: 'Chang', rsvp: 'going' },
@@ -358,6 +368,7 @@ const mockEvents: Event[] = [
 		location: 'The Blue Note Cafe',
 		category: 'music',
 		attendees: 120,
+		tribeGroups: [],
 		tribe: [
 			{ id: 't15', firstName: 'Nina', lastName: 'Patel', email: 'nina@email.com', phone: '555-0401', rsvp: 'going' },
 			{ id: 't16', firstName: 'Jake', lastName: 'Morrison', rsvp: 'going' },
@@ -389,6 +400,7 @@ function loadEvents(): Event[] {
 			const parsed: Event[] = JSON.parse(stored);
 			return parsed.map((e) => ({
 				...e,
+				tribeGroups: (e as any).tribeGroups ?? [],
 				tribe: (e.tribe ?? []).map((m: any) => ({
 					...m,
 					firstName: m.firstName ?? (m.name ? m.name.split(' ')[0] : ''),
@@ -422,12 +434,13 @@ let nextId = browser
 	? Math.max(...loadEvents().map((e) => parseInt(e.id) || 0), 0) + 1
 	: 5;
 
-export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees' | 'tribe'>) {
+export function addEvent(event: Omit<Event, 'id' | 'createdAt' | 'attendees' | 'tribe' | 'tribeGroups'>) {
 	const newEvent: Event = {
 		...event,
 		id: String(nextId++),
 		attendees: 0,
 		tribe: [],
+		tribeGroups: [],
 		createdAt: new Date().toISOString()
 	};
 	events.update((list) => [...list, newEvent]);
@@ -471,6 +484,62 @@ export function addTribeMember(eventId: string, member: Omit<TribeMember, 'id'>)
 				...e,
 				tribe: [...e.tribe, { ...member, id: Math.random().toString(36).substring(2, 10) }]
 			};
+		})
+	);
+}
+
+export function addTribeGroup(eventId: string, name: string) {
+	const id = Math.random().toString(36).substring(2, 10);
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return { ...e, tribeGroups: [...e.tribeGroups, { id, name }] };
+		})
+	);
+}
+
+export function deleteTribeGroup(eventId: string, groupId: string) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return {
+				...e,
+				tribeGroups: e.tribeGroups.filter((g) => g.id !== groupId),
+				tribe: e.tribe.map((m) => (m.tribeId === groupId ? { ...m, tribeId: undefined } : m))
+			};
+		})
+	);
+}
+
+export function assignMemberToTribe(eventId: string, memberId: string, tribeId: string | undefined) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return {
+				...e,
+				tribe: e.tribe.map((m) => (m.id === memberId ? { ...m, tribeId } : m))
+			};
+		})
+	);
+}
+
+export function updateTribeMember(eventId: string, memberId: string, updates: Partial<Omit<TribeMember, 'id'>>) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return {
+				...e,
+				tribe: e.tribe.map((m) => (m.id === memberId ? { ...m, ...updates } : m))
+			};
+		})
+	);
+}
+
+export function deleteTribeMember(eventId: string, memberId: string) {
+	events.update((list) =>
+		list.map((e) => {
+			if (e.id !== eventId) return e;
+			return { ...e, tribe: e.tribe.filter((m) => m.id !== memberId) };
 		})
 	);
 }

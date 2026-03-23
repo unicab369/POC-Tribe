@@ -62,6 +62,11 @@ export type ItineraryItem = ActivityItem | FlightItem | HotelItem | CarRentalIte
 
 export type RSVPStatus = 'going' | 'maybe' | 'not-going' | 'pending';
 
+export interface TribeGroup {
+	id: string;
+	name: string;
+}
+
 export interface TribeMember {
 	id: string;
 	firstName: string;
@@ -69,6 +74,7 @@ export interface TribeMember {
 	email?: string;
 	phone?: string;
 	rsvp: RSVPStatus;
+	tribeId?: string;
 }
 
 export interface Event {
@@ -81,6 +87,7 @@ export interface Event {
 	category: EventCategory;
 	attendees: number;
 	tribe: TribeMember[];
+	tribeGroups: TribeGroup[];
 	itinerary: ItineraryItem[];
 	createdAt: string;
 }
