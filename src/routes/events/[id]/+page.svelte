@@ -11,6 +11,7 @@
 
 	let showTribe = $state(false);
 	let showEdit = $state(false);
+	let showPrint = $state(false);
 	let savedScrollY = 0;
 
 	// Edit form state
@@ -69,6 +70,34 @@
 
 	function handleEditOverlayClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) closeEdit();
+	}
+
+	function openPrint() {
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+		showPrint = true;
+	}
+
+	function closePrint() {
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
+		showPrint = false;
+	}
+
+	function handlePrintOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) closePrint();
+	}
+
+	function doPrint() {
+		window.print();
 	}
 
 	const rsvpLabels: Record<RSVPStatus, string> = {
@@ -297,6 +326,13 @@
 				{#if event.tribe.length > 0}
 					<span class="tribe-count">{event.tribe.length}</span>
 				{/if}
+			</button>
+			<button class="edit-btn" onclick={openPrint} aria-label="Print Event">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="6 9 6 2 18 2 18 9" />
+					<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+					<rect x="6" y="14" width="12" height="8" />
+				</svg>
 			</button>
 			<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -610,6 +646,94 @@
 					<div class="modal-footer">
 						<button class="btn-footer-add" onclick={saveEdit}>Save</button>
 						<button class="btn-footer-close" onclick={closeEdit}>Cancel</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+		{#if showPrint}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={handlePrintOverlayClick} onkeydown={() => {}}>
+				<div class="modal">
+					<div class="modal-header">
+						<h3>Print Preview</h3>
+					</div>
+					<div class="modal-body">
+						<div class="print-content">
+							<h2 class="print-title">{event.title}</h2>
+							<div class="print-meta">
+								<span>{formatDateRange(event.startDate, event.endDate)}{#if dayCount > 1} &middot; {dayCount} days{/if}</span>
+								{#if event.location}<span>{event.location}</span>{/if}
+								<span class="print-category">{event.category}</span>
+							</div>
+							{#if event.description}
+								<p class="print-description">{event.description}</p>
+							{/if}
+
+							<h3 class="print-section-title">Agenda</h3>
+							{#each dates as date, i}
+								{@const dayItems = getItemsForDate(event.itinerary, date)}
+								<div class="print-day">
+									<div class="print-day-header">Day {i + 1} &mdash; {formatDate(date)}</div>
+									{#if dayItems.length === 0}
+										<p class="print-empty">No items</p>
+									{:else}
+										{#each dayItems as entry}
+											<div class="print-item">
+												{#if entry.item.type === 'activity'}
+													<div class="print-item-type" style="color: #8b5cf6">Activity</div>
+													<div class="print-item-title">{entry.item.title}</div>
+													<div class="print-item-detail">{entry.item.startTime} &ndash; {entry.item.endTime}</div>
+													{#if entry.item.location}<div class="print-item-detail">{entry.item.location}</div>{/if}
+													{#if entry.item.notes}<div class="print-item-detail print-item-notes">{entry.item.notes}</div>{/if}
+												{:else if entry.item.type === 'flight'}
+													<div class="print-item-type" style="color: #3b82f6">Flight{#if entry.flightLeg === 'return'} (Return){/if}</div>
+													{#if entry.flightLeg === 'return'}
+														<div class="print-item-title">{entry.item.returnAirline || entry.item.airline} {entry.item.returnFlightNumber || entry.item.flightNumber}</div>
+														<div class="print-item-detail">{entry.item.returnFrom || entry.item.to} &rarr; {entry.item.returnTo || entry.item.from}</div>
+														<div class="print-item-detail">Departs {entry.item.returnDepartureTime || ''} &ndash; Arrives {entry.item.returnArrivalTime || ''}</div>
+													{:else}
+														<div class="print-item-title">{entry.item.airline} {entry.item.flightNumber}</div>
+														<div class="print-item-detail">{entry.item.from} &rarr; {entry.item.to}</div>
+														<div class="print-item-detail">Departs {entry.item.departureTime} &ndash; Arrives {entry.item.arrivalTime}</div>
+													{/if}
+												{:else if entry.item.type === 'hotel'}
+													<div class="print-item-type" style="color: #f59e0b">Hotel</div>
+													<div class="print-item-title">{entry.item.name}</div>
+													<div class="print-item-detail">Check-in: {formatDate(entry.item.checkInDate)} &ndash; Check-out: {formatDate(entry.item.checkOutDate)}</div>
+													{#if entry.item.location}<div class="print-item-detail">{entry.item.location}</div>{/if}
+													{#if entry.item.confirmationNumber}<div class="print-item-detail">Confirmation: {entry.item.confirmationNumber}</div>{/if}
+												{:else if entry.item.type === 'car-rental'}
+													<div class="print-item-type" style="color: #22c55e">Car Rental{#if entry.carRentalLeg === 'dropoff'} (Drop-off){:else} (Pickup){/if}</div>
+													{#if entry.carRentalLeg === 'dropoff'}
+														<div class="print-item-detail">{formatDate(entry.item.returnDate)} at {entry.item.returnTime}</div>
+														<div class="print-item-detail">{entry.item.returnLocation}</div>
+													{:else}
+														<div class="print-item-detail">{formatDate(entry.item.pickupDate)} at {entry.item.pickupTime}</div>
+														<div class="print-item-detail">{entry.item.pickupLocation}</div>
+													{/if}
+												{/if}
+											</div>
+										{/each}
+									{/if}
+								</div>
+							{/each}
+
+							{#if event.tribe.length > 0}
+								<h3 class="print-section-title">Tribe</h3>
+								<div class="print-tribe-list">
+									{#each event.tribe as member}
+										<div class="print-tribe-member">
+											<span class="print-member-name">{member.firstName} {member.lastName}</span>
+											<span class="print-member-rsvp" style="color: {rsvpColors[member.rsvp]}">{rsvpLabels[member.rsvp]}</span>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button class="btn-footer-add" onclick={doPrint}>Print</button>
+						<button class="btn-footer-close" onclick={closePrint}>Cancel</button>
 					</div>
 				</div>
 			</div>
@@ -1190,6 +1314,202 @@
 
 	.edit-form input.input-error {
 		border-color: var(--color-danger, #ef4444);
+	}
+
+	/* Print preview content */
+	.print-content {
+		padding: var(--space-sm) 0;
+	}
+
+	.print-title {
+		font-size: var(--font-2xl);
+		font-weight: 700;
+		color: var(--color-text);
+		margin-bottom: var(--space-sm);
+	}
+
+	.print-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		font-size: var(--font-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: var(--space-md);
+	}
+
+	.print-category {
+		text-transform: capitalize;
+	}
+
+	.print-description {
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		line-height: 1.6;
+		margin-bottom: var(--space-md);
+		padding-bottom: var(--space-md);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.print-section-title {
+		font-size: var(--font-lg);
+		font-weight: 700;
+		color: var(--color-text);
+		margin-bottom: var(--space-sm);
+		padding-bottom: var(--space-xs);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.print-day {
+		margin-bottom: var(--space-md);
+	}
+
+	.print-day-header {
+		font-size: var(--font-base);
+		font-weight: 600;
+		color: var(--color-primary);
+		margin-bottom: var(--space-xs);
+	}
+
+	.print-empty {
+		font-size: var(--font-sm);
+		color: var(--color-text-muted);
+		padding-left: var(--space-sm);
+	}
+
+	.print-item {
+		padding: var(--space-sm) var(--space-sm);
+		border-left: 3px solid var(--color-border);
+		margin-bottom: var(--space-xs);
+	}
+
+	.print-item-type {
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-bottom: 2px;
+	}
+
+	.print-item-title {
+		font-size: var(--font-base);
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.print-item-detail {
+		font-size: var(--font-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.print-item-notes {
+		font-style: italic;
+	}
+
+	.print-tribe-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-xs);
+	}
+
+	.print-tribe-member {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: var(--space-xs) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.print-tribe-member:last-child {
+		border-bottom: none;
+	}
+
+	.print-member-name {
+		font-size: var(--font-base);
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	.print-member-rsvp {
+		font-size: var(--font-sm);
+		font-weight: 600;
+	}
+
+	@media print {
+		:global(body > *) {
+			display: none !important;
+		}
+
+		:global(body) {
+			background: white !important;
+		}
+
+		:global(.modal-overlay) {
+			position: static !important;
+			background: none !important;
+			display: block !important;
+		}
+
+		:global(.modal) {
+			position: static !important;
+			height: auto !important;
+			background: white !important;
+		}
+
+		:global(.modal-header),
+		:global(.modal-footer) {
+			display: none !important;
+		}
+
+		:global(.modal-body) {
+			padding: 0 !important;
+			overflow: visible !important;
+		}
+
+		.print-content {
+			display: block !important;
+			color: black !important;
+		}
+
+		.print-title {
+			color: black !important;
+		}
+
+		.print-meta {
+			color: #333 !important;
+		}
+
+		.print-description {
+			color: #333 !important;
+		}
+
+		.print-section-title {
+			color: black !important;
+			border-color: #ccc !important;
+		}
+
+		.print-day-header {
+			color: #333 !important;
+		}
+
+		.print-item {
+			border-color: #ccc !important;
+		}
+
+		.print-item-title {
+			color: black !important;
+		}
+
+		.print-item-detail {
+			color: #333 !important;
+		}
+
+		.print-member-name {
+			color: black !important;
+		}
+
+		.print-tribe-member {
+			border-color: #ccc !important;
+		}
 	}
 
 </style>

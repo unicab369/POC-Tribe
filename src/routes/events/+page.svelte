@@ -55,6 +55,7 @@
 				</button>
 			{/each}
 		</div>
+		<div class="separator"></div>
 	</div>
 
 	<div class="events-list">
@@ -135,8 +136,12 @@
 		gap: var(--space-sm);
 		overflow-x: auto;
 		padding-bottom: var(--space-sm);
-		margin-bottom: var(--space-md);
 		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+	}
+
+	.filter-chips::-webkit-scrollbar {
+		display: none;
 	}
 
 	.chip {
@@ -155,6 +160,12 @@
 		background: var(--color-primary);
 		color: white;
 		border-color: var(--color-primary);
+	}
+
+	.separator {
+		height: 1px;
+		background: var(--color-border);
+		margin-bottom: var(--space-md);
 	}
 
 	.events-list {

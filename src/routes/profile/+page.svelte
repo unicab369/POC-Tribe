@@ -11,8 +11,10 @@
 	let myEvents = $derived($events.slice(-3).reverse());
 </script>
 
-<div class="container">
-	<h1 class="page-title">Profile</h1>
+<div class="container no-top-padding">
+	<div class="page-top">
+		<h1 class="page-title">Profile</h1>
+	</div>
 
 	<div class="profile-card">
 		<div class="avatar">
@@ -58,11 +60,28 @@
 </div>
 
 <style>
-	.page-title {
-		font-size: var(--font-2xl);
-		font-weight: 700;
-		padding-top: var(--space-lg);
+	.no-top-padding {
+		padding-top: 0;
+	}
+
+	.page-top {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		background: var(--color-bg);
+		padding: var(--space-sm) 0;
+		margin-left: calc(-1 * var(--space-md));
+		margin-right: calc(-1 * var(--space-md));
+		padding-left: var(--space-md);
+		padding-right: var(--space-md);
 		margin-bottom: var(--space-md);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.page-title {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
 	}
 
 	.profile-card {
