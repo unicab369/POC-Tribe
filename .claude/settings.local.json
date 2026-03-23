@@ -13,7 +13,11 @@
       "Bash(npx svelte-check:*)",
       "Bash(wc -l:*)",
       "Bash(ls:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(python3:*)",
+      "Bash(git diff:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

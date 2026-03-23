@@ -797,11 +797,6 @@
 					<span class="category-badge" style="background-color: {categoryColors[event.category]}">
 						{event.category}
 					</span>
-					<button class="details-toggle" onclick={() => detailsExpanded.update(v => !v)} aria-label={$detailsExpanded ? 'Collapse details' : 'Expand details'}>
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:details-toggle-collapsed={!$detailsExpanded}>
-							<polyline points="6 9 12 15 18 9" />
-						</svg>
-					</button>
 				</div>
 			</div>
 			<div class="event-meta">
@@ -822,31 +817,17 @@
 						<span>{event.tribe.length} members</span>
 					</div>
 				</div>
+				<button class="details-toggle" onclick={() => detailsExpanded.update(v => !v)} aria-label={$detailsExpanded ? 'Collapse details' : 'Expand details'}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:details-toggle-collapsed={!$detailsExpanded}>
+						<polyline points="6 9 12 15 18 9" />
+					</svg>
+					{$detailsExpanded ? 'Less' : 'More'}
+				</button>
+			{#if $detailsExpanded}
 				<p class="event-description">{event.description}</p>
 			{/if}
 		</header>
 
-		{#if event.category === 'wedding'}
-			<div class="wedding-actions">
-				<button class="wedding-action-btn checklist-btn" onclick={openChecklist}>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M9 11l3 3L22 4" />
-						<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-					</svg>
-					Checklist
-					{#if checklistProgress.total > 0}
-						<span class="checklist-badge">{checklistProgress.done}/{checklistProgress.total}</span>
-					{/if}
-				</button>
-				<button class="wedding-action-btn edit-action-btn" onclick={openEdit}>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-					</svg>
-					Edit
-				</button>
-			</div>
-		{/if}
 
 		<section class="itinerary-section">
 			<div class="agenda-header">
@@ -869,6 +850,27 @@
 					{/if}
 				</div>
 			</div>
+			{#if event.category === 'wedding'}
+				<div class="wedding-actions">
+					<button class="wedding-action-btn checklist-btn" onclick={openChecklist}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M9 11l3 3L22 4" />
+							<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+						</svg>
+						Checklist
+						{#if checklistProgress.total > 0}
+							<span class="checklist-badge">{checklistProgress.done}/{checklistProgress.total}</span>
+						{/if}
+					</button>
+					<button class="wedding-action-btn edit-action-btn" onclick={openEdit}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+						</svg>
+						Edit
+					</button>
+				</div>
+			{/if}
 			{#each dates as date, i}
 				{@const dayItems = getItemsForDate(event.itinerary, date)}
 				<div class="day-section">
@@ -1669,6 +1671,7 @@
 		padding: 4px;
 		display: flex;
 		align-items: center;
+		align-self: center;
 		border-radius: var(--radius-sm);
 		transition: color 0.15s;
 	}

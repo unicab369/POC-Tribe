@@ -29,7 +29,6 @@
 	let editing = $state(false);
 	let viewing = $state(false);
 	let savedScrollY = 0;
-	let itemStatus = $state<ItemStatus>('todo');
 
 	// Activity edit fields
 	let actTitle = $state('');
@@ -84,8 +83,8 @@
 	// Flight required field logic
 	let flOutFromToRequired = $derived(!!flDate);
 	let flRetFromToRequired = $derived(!!flRetDate);
-	let flOutAllRequired = $derived(itemStatus === 'finalized');
-	let flRetAllRequired = $derived(itemStatus === 'finalized' && !!flRetDate);
+	let flOutAllRequired = $derived(item.status === 'finalized');
+	let flRetAllRequired = $derived(item.status === 'finalized' && !!flRetDate);
 
 	let crMaxPickupDate = $derived.by(() => {
 		if (!crReturnDate) return '';
@@ -133,7 +132,7 @@
 			crReturnLocation = item.returnLocation;
 			crSameDropoff = item.pickupLocation === item.returnLocation;
 		}
-		itemStatus = item.status;
+
 		savedScrollY = window.scrollY;
 		document.body.style.position = 'fixed';
 		document.body.style.top = `-${savedScrollY}px`;
@@ -163,13 +162,13 @@
 		// Outbound: if date is set, from/to are required
 		if (flDate && (!flFrom.trim() || !flTo.trim())) return false;
 		// Finalized: all outbound fields required
-		if (itemStatus === 'finalized') {
+		if (item.status === 'finalized') {
 			if (!flAirline.trim() || !flNumber.trim() || !flDate || !flFrom.trim() || !flTo.trim() || !flDepartureTime || !flArrivalTime) return false;
 		}
 		// Return: if date is set, from/to are required
 		if (flRetDate && (!flRetFrom.trim() || !flRetTo.trim())) return false;
 		// Finalized + return date: all return fields required
-		if (itemStatus === 'finalized' && flRetDate) {
+		if (item.status === 'finalized' && flRetDate) {
 			if (!flRetAirline.trim() || !flRetNumber.trim() || !flRetFrom.trim() || !flRetTo.trim() || !flRetDepartureTime || !flRetArrivalTime) return false;
 		}
 		return true;
@@ -183,7 +182,7 @@
 		showErrors = false;
 		let updated: ItineraryItem;
 		if (item.type === 'activity') {
-			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim(), status: itemStatus };
+			updated = { ...item, title: actTitle.trim(), date: actDate, startTime: actStartTime, endTime: actEndTime, location: actLocation.trim(), notes: actNotes.trim(), status: item.status };
 		} else if (item.type === 'flight') {
 			updated = {
 				...item,
@@ -201,12 +200,12 @@
 				returnArrivalTime: flRetArrivalTime || undefined,
 				returnFrom: flRetFrom.trim() || undefined,
 				returnTo: flRetTo.trim() || undefined,
-				status: itemStatus
+				status: item.status
 			};
 		} else if (item.type === 'hotel') {
-			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim(), status: itemStatus };
+			updated = { ...item, name: htName.trim(), checkInDate: htCheckIn, checkOutDate: htCheckOut, location: htLocation.trim(), confirmationNumber: htConfirmation.trim(), status: item.status };
 		} else {
-			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim(), status: itemStatus };
+			updated = { ...item, pickupDate: crPickupDate, pickupTime: crPickupTime, returnDate: crReturnDate, returnTime: crReturnTime, pickupLocation: crPickupLocation.trim(), returnLocation: crSameDropoff ? crPickupLocation.trim() : crReturnLocation.trim(), status: item.status };
 		}
 		onsave?.(updated);
 		unlockScroll();
@@ -281,7 +280,7 @@
 			crReturnLocation = item.returnLocation;
 			crSameDropoff = item.pickupLocation === item.returnLocation;
 		}
-		itemStatus = item.status;
+
 		editing = true;
 	}
 </script>
@@ -746,23 +745,6 @@
 						</div>
 					</div>
 				{/if}
-
-				<div class="status-picker-section">
-					<label class="status-picker-label">Status</label>
-					<div class="status-picker">
-						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-							<button
-								type="button"
-								class="status-option"
-								class:active={itemStatus === s}
-								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
-								onclick={() => (itemStatus = s)}
-							>
-								{statusLabels[s]}
-							</button>
-						{/each}
-					</div>
-				</div>
 			</div>
 			</div>
 

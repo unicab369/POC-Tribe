@@ -645,6 +645,7 @@
 		font-size: var(--font-xl);
 		font-weight: 700;
 		color: var(--color-text);
+		text-align: center;
 	}
 
 	.success-banner {
