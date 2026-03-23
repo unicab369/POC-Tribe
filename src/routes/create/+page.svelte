@@ -164,20 +164,26 @@
 		window.scrollTo(0, savedScrollY);
 	}
 
-	function startAddForDay(date: string, type: ItineraryItem['type']) {
+	function startAddForDay(date: string) {
 		addingForDate = date;
-		addingType = type;
-		// Pre-fill date fields based on item type
-		if (type === 'activity') actDate = date;
-		else if (type === 'flight') flDate = date;
-		else if (type === 'hotel') htCheckIn = date;
-		else if (type === 'car-rental') crPickupDate = date;
+		addingType = 'activity';
+		actDate = date;
 		savedScrollY = window.scrollY;
 		document.body.style.position = 'fixed';
 		document.body.style.top = `-${savedScrollY}px`;
 		document.body.style.left = '0';
 		document.body.style.right = '0';
 		document.body.style.overflow = 'hidden';
+	}
+
+	function switchAddType(type: ItineraryItem['type']) {
+		resetItemForms();
+		addingType = type;
+		if (!addingForDate) return;
+		if (type === 'activity') actDate = addingForDate;
+		else if (type === 'flight') flDate = addingForDate;
+		else if (type === 'hotel') htCheckIn = addingForDate;
+		else if (type === 'car-rental') crPickupDate = addingForDate;
 	}
 
 	function handleAddItemOverlayClick(e: MouseEvent) {
@@ -385,11 +391,8 @@
 							{/each}
 						</div>
 					{/if}
-					<div class="day-type-picker">
-						<button type="button" class="day-type-btn activity" onclick={() => startAddForDay(date, 'activity')}>+ Activity</button>
-						<button type="button" class="day-type-btn flight" onclick={() => startAddForDay(date, 'flight')}>+ Flight</button>
-						<button type="button" class="day-type-btn hotel" onclick={() => startAddForDay(date, 'hotel')}>+ Hotel</button>
-						<button type="button" class="day-type-btn car-rental" onclick={() => startAddForDay(date, 'car-rental')}>+ Car Rental</button>
+					<div class="day-add-row">
+						<button type="button" class="day-add-btn" onclick={() => startAddForDay(date)}>+ Add</button>
 					</div>
 				</div>
 			{/each}
@@ -404,15 +407,12 @@
 	<div class="modal-overlay" onclick={handleAddItemOverlayClick} onkeydown={() => {}}>
 		<div class="modal">
 			<div class="modal-header">
-				{#if addingType === 'activity'}
-					<h3 style="color: #8b5cf6">Add Activity</h3>
-				{:else if addingType === 'flight'}
-					<h3 style="color: #3b82f6">Add Flight</h3>
-				{:else if addingType === 'hotel'}
-					<h3 style="color: #f59e0b">Add Hotel</h3>
-				{:else if addingType === 'car-rental'}
-					<h3 style="color: #22c55e">Add Car Rental</h3>
-				{/if}
+				<div class="item-type-tabs">
+					<button type="button" class="item-type-tab" class:active={addingType === 'activity'} onclick={() => switchAddType('activity')}>Activity</button>
+					<button type="button" class="item-type-tab" class:active={addingType === 'flight'} onclick={() => switchAddType('flight')}>Flight</button>
+					<button type="button" class="item-type-tab" class:active={addingType === 'hotel'} onclick={() => switchAddType('hotel')}>Hotel</button>
+					<button type="button" class="item-type-tab" class:active={addingType === 'car-rental'} onclick={() => switchAddType('car-rental')}>Car Rental</button>
+				</div>
 			</div>
 			<div class="modal-body">
 				{#if addingType === 'activity'}
@@ -812,33 +812,62 @@
 		gap: var(--space-sm);
 	}
 
-	.day-type-picker {
+	.day-add-row {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
 		margin-top: var(--space-sm);
 	}
 
-	.day-type-btn {
-		padding: 4px 10px;
+	.day-add-btn {
+		padding: 4px 14px;
 		border: 1px dashed var(--color-border);
 		border-radius: var(--radius-full);
 		background: none;
 		font-size: 0.75rem;
 		font-weight: 600;
+		color: var(--color-primary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
-	.day-type-btn.activity { color: #8b5cf6; }
-	.day-type-btn.flight { color: #3b82f6; }
-	.day-type-btn.hotel { color: #f59e0b; }
-	.day-type-btn.car-rental { color: #22c55e; }
-
-	.day-type-btn:hover {
+	.day-add-btn:hover {
 		border-style: solid;
 		background: var(--color-bg);
 	}
+
+	.item-type-tabs {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		width: 100%;
+	}
+
+	.item-type-tab {
+		padding: 8px 4px;
+		border: none;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+		text-align: center;
+	}
+
+	.item-type-tab:not(:last-child) {
+		border-right: 1px solid var(--color-border);
+	}
+
+	.item-type-tab.active {
+		color: white;
+	}
+
+	.item-type-tab:nth-child(1).active { background: #8b5cf6; }
+	.item-type-tab:nth-child(2).active { background: #3b82f6; }
+	.item-type-tab:nth-child(3).active { background: #f59e0b; }
+	.item-type-tab:nth-child(4).active { background: #22c55e; }
 
 	/* Itinerary builder */
 	.itinerary-row {

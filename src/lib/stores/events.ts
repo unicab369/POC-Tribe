@@ -401,6 +401,7 @@ function loadEvents(): Event[] {
 			return parsed.map((e) => ({
 				...e,
 				tribeGroups: (e as any).tribeGroups ?? [],
+				checklist: (e as any).checklist ?? undefined,
 				tribe: (e.tribe ?? []).map((m: any) => ({
 					...m,
 					firstName: m.firstName ?? (m.name ? m.name.split(' ')[0] : ''),

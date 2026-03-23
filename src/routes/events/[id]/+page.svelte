@@ -3,7 +3,7 @@
 	import { events, updateItineraryItem, addItineraryItem, addTribeMember, updateEvent, addTribeGroup, deleteTribeGroup, renameTribeGroup, assignMemberToTribe, updateTribeMember, deleteTribeMember } from '$lib/stores/events';
 	import ItineraryItemCard from '$lib/components/ItineraryItemCard.svelte';
 	import { formatDateRange, getDayCount, getDateRange, getItemsForDate, formatDate, generateId, timeOptions, formatTime } from '$lib/utils';
-	import type { Event, ItineraryItem, RSVPStatus, ItemStatus, FlightItem, TribeMember } from '$lib/types';
+	import type { Event, ItineraryItem, RSVPStatus, ItemStatus, FlightItem, TribeMember, ChecklistItem } from '$lib/types';
 
 	let event = $derived($events.find((e) => e.id === page.params.id));
 	let dayCount = $derived(event ? getDayCount(event.startDate, event.endDate) : 0);
@@ -347,16 +347,21 @@
 	let crReturnLocation = $state('');
 	let crSameDropoff = $state(false);
 
-	function startAddForDay(date: string, type: ItineraryItem['type']) {
+	function startAddForDay(date: string) {
 		resetAddItemFields();
 		addingForDate = date;
-		addingType = type;
+		addingType = 'activity';
 		savedScrollY = window.scrollY;
 		document.body.style.position = 'fixed';
 		document.body.style.top = `-${savedScrollY}px`;
 		document.body.style.left = '0';
 		document.body.style.right = '0';
 		document.body.style.overflow = 'hidden';
+	}
+
+	function switchAddType(type: ItineraryItem['type']) {
+		resetAddItemFields();
+		addingType = type;
 	}
 
 	function cancelAddItem() {
@@ -470,6 +475,137 @@
 		if (e.target === e.currentTarget) cancelEditDayTitle();
 	}
 
+	// Wedding checklist
+	const DEFAULT_WEDDING_CHECKLIST: ChecklistItem[] = [
+		{ id: 'wc1', label: 'Set wedding budget', checked: false },
+		{ id: 'wc2', label: 'Book ceremony & reception venues', checked: false },
+		{ id: 'wc3', label: 'Hire photographer & videographer', checked: false },
+		{ id: 'wc4', label: 'Send save-the-dates', checked: false },
+		{ id: 'wc5', label: 'Send invitations', checked: false },
+		{ id: 'wc6', label: 'Book caterer & tastings', checked: false },
+		{ id: 'wc7', label: 'Book DJ or band', checked: false },
+		{ id: 'wc8', label: 'Order wedding cake', checked: false },
+		{ id: 'wc9', label: 'Choose wedding attire', checked: false },
+		{ id: 'wc10', label: 'Arrange florals & decorations', checked: false },
+		{ id: 'wc11', label: 'Plan rehearsal dinner', checked: false },
+		{ id: 'wc12', label: 'Obtain marriage license', checked: false },
+		{ id: 'wc13', label: 'Create seating chart', checked: false },
+		{ id: 'wc14', label: 'Arrange transportation', checked: false },
+		{ id: 'wc15', label: 'Write vows', checked: false }
+	];
+
+	let showChecklist = $state(false);
+
+	function openChecklist() {
+		if (!event) return;
+		if (!event.checklist) {
+			updateEvent(event.id, { checklist: DEFAULT_WEDDING_CHECKLIST.map(item => ({ ...item })) });
+		}
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+		showChecklist = true;
+	}
+
+	function closeChecklist() {
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
+		showChecklist = false;
+	}
+
+	function handleChecklistOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) closeChecklist();
+	}
+
+	function toggleChecklistItem(id: string) {
+		if (!event || !event.checklist) return;
+		const updated = event.checklist.map(item =>
+			item.id === id ? { ...item, checked: !item.checked } : item
+		);
+		updateEvent(event.id, { checklist: updated });
+	}
+
+	let checklistEditMode = $state(false);
+	let newChecklistLabel = $state('');
+	let renamingChecklistId = $state<string | null>(null);
+	let renamingChecklistLabel = $state('');
+
+	function addChecklistItem() {
+		if (!event || !event.checklist || !newChecklistLabel.trim()) return;
+		const id = 'wc' + Math.random().toString(36).substring(2, 8);
+		updateEvent(event.id, { checklist: [...event.checklist, { id, label: newChecklistLabel.trim(), checked: false }] });
+		newChecklistLabel = '';
+	}
+
+	function removeChecklistItem(id: string) {
+		if (!event || !event.checklist) return;
+		updateEvent(event.id, { checklist: event.checklist.filter(item => item.id !== id) });
+	}
+
+	let dragChecklistIndex = $state<number | null>(null);
+	let dragOverChecklistIndex = $state<number | null>(null);
+
+	function handleChecklistDragStart(index: number) {
+		dragChecklistIndex = index;
+	}
+
+	function handleChecklistDragOver(e: DragEvent, index: number) {
+		e.preventDefault();
+		dragOverChecklistIndex = index;
+	}
+
+	function handleChecklistDrop(index: number) {
+		if (!event || !event.checklist || dragChecklistIndex === null || dragChecklistIndex === index) {
+			dragChecklistIndex = null;
+			dragOverChecklistIndex = null;
+			return;
+		}
+		const items = [...event.checklist];
+		const [moved] = items.splice(dragChecklistIndex, 1);
+		items.splice(index, 0, moved);
+		updateEvent(event.id, { checklist: items });
+		dragChecklistIndex = null;
+		dragOverChecklistIndex = null;
+	}
+
+	function handleChecklistDragEnd() {
+		dragChecklistIndex = null;
+		dragOverChecklistIndex = null;
+	}
+
+	function startRenameChecklist(id: string, label: string) {
+		renamingChecklistId = id;
+		renamingChecklistLabel = label;
+	}
+
+	function saveRenameChecklist() {
+		if (!event || !event.checklist || !renamingChecklistId || !renamingChecklistLabel.trim()) return;
+		updateEvent(event.id, { checklist: event.checklist.map(item =>
+			item.id === renamingChecklistId ? { ...item, label: renamingChecklistLabel.trim() } : item
+		) });
+		renamingChecklistId = null;
+		renamingChecklistLabel = '';
+	}
+
+	function cancelRenameChecklist() {
+		renamingChecklistId = null;
+		renamingChecklistLabel = '';
+	}
+
+	let checklistProgress = $derived.by(() => {
+		if (!event?.checklist) return { done: 0, total: 0 };
+		const total = event.checklist.length;
+		const done = event.checklist.filter(item => item.checked).length;
+		return { done, total };
+	});
+
 	const categoryColors: Record<Event['category'], string> = {
 		social: '#8b5cf6',
 		business: '#3b82f6',
@@ -539,6 +675,28 @@
 			<p class="event-description">{event.description}</p>
 		</header>
 
+		{#if event.category === 'wedding'}
+			<div class="wedding-actions">
+				<button class="wedding-action-btn checklist-btn" onclick={openChecklist}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M9 11l3 3L22 4" />
+						<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+					</svg>
+					Checklist
+					{#if checklistProgress.total > 0}
+						<span class="checklist-badge">{checklistProgress.done}/{checklistProgress.total}</span>
+					{/if}
+				</button>
+				<button class="wedding-action-btn edit-action-btn" onclick={openEdit}>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+					</svg>
+					Edit
+				</button>
+			</div>
+		{/if}
+
 		<section class="itinerary-section">
 			<div class="agenda-header">
 				<h2>Agenda</h2>
@@ -550,19 +708,21 @@
 							<rect x="6" y="14" width="12" height="8" />
 						</svg>
 					</button>
-					<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-						</svg>
-					</button>
+					{#if event.category !== 'wedding'}
+						<button class="edit-btn" onclick={openEdit} aria-label="Edit Event">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+							</svg>
+						</button>
+					{/if}
 				</div>
 			</div>
 			{#each dates as date, i}
 				{@const dayItems = getItemsForDate(event.itinerary, date)}
 				<div class="day-section">
 					<button class="day-header" onclick={() => startEditDayTitle(date)}>
-						<span class="day-label">Day {i + 1}{#if event.dayTitles?.[date]} - {event.dayTitles[date]}{/if}</span>
+						<span class="day-label">Day {i + 1}{#if event.dayTitles?.[date]}&nbsp;- {event.dayTitles[date]}{/if}</span>
 						<span class="day-date">{formatDate(date)}</span>
 					</button>
 					{#if dayItems.length > 0}
@@ -572,11 +732,8 @@
 							{/each}
 						</div>
 					{/if}
-					<div class="day-type-picker">
-						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'activity')} style="color: #8b5cf6">+ Activity</button>
-						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'flight')} style="color: #3b82f6">+ Flight</button>
-						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'hotel')} style="color: #f59e0b">+ Hotel</button>
-						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'car-rental')} style="color: #22c55e">+ Car Rental</button>
+					<div class="day-add-row">
+						<button type="button" class="day-add-btn" onclick={() => startAddForDay(date)}>+ Add</button>
 					</div>
 				</div>
 			{/each}
@@ -586,15 +743,12 @@
 			<div class="modal-overlay" onclick={handleAddItemOverlayClick} onkeydown={() => {}}>
 				<div class="modal">
 					<div class="modal-header">
-						{#if addingType === 'activity'}
-							<h3 style="color: #8b5cf6">Add Activity</h3>
-						{:else if addingType === 'flight'}
-							<h3 style="color: #3b82f6">Add Flight</h3>
-						{:else if addingType === 'hotel'}
-							<h3 style="color: #f59e0b">Add Hotel</h3>
-						{:else if addingType === 'car-rental'}
-							<h3 style="color: #22c55e">Add Car Rental</h3>
-						{/if}
+						<div class="item-type-tabs">
+							<button type="button" class="item-type-tab" class:active={addingType === 'activity'} onclick={() => switchAddType('activity')}>Activity</button>
+							<button type="button" class="item-type-tab" class:active={addingType === 'flight'} onclick={() => switchAddType('flight')}>Flight</button>
+							<button type="button" class="item-type-tab" class:active={addingType === 'hotel'} onclick={() => switchAddType('hotel')}>Hotel</button>
+							<button type="button" class="item-type-tab" class:active={addingType === 'car-rental'} onclick={() => switchAddType('car-rental')}>Car Rental</button>
+						</div>
 					</div>
 					<div class="modal-body">
 						<div class="edit-form">
@@ -1056,7 +1210,7 @@
 							{#each dates as date, i}
 								{@const dayItems = getItemsForDate(event.itinerary, date)}
 								<div class="print-day">
-									<div class="print-day-header">Day {i + 1}{#if event.dayTitles?.[date]} - {event.dayTitles[date]}{/if} &mdash; {formatDate(date)}</div>
+									<div class="print-day-header">Day {i + 1}{#if event.dayTitles?.[date]}&nbsp;- {event.dayTitles[date]}{/if} &mdash; {formatDate(date)}</div>
 									{#if dayItems.length === 0}
 										<p class="print-empty">No items</p>
 									{:else}
@@ -1106,6 +1260,97 @@
 					<div class="modal-footer">
 						<button class="btn-footer-add" onclick={doPrint}>Print</button>
 						<button class="btn-footer-close" onclick={closePrint}>Cancel</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+		{#if showChecklist}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={handleChecklistOverlayClick} onkeydown={() => {}}>
+				<div class="modal checklist-modal">
+					<div class="modal-header">
+						<div class="modal-header-row">
+							{#if checklistEditMode}
+								<h3 style="color: #ec4899">Edit Checklist</h3>
+							{:else}
+								<button class="checklist-edit-btn" onclick={() => (checklistEditMode = true)} aria-label="Edit checklist">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+								</button>
+								<h3 style="color: #ec4899">Checklist</h3>
+							{/if}
+							<span></span>
+						</div>
+					</div>
+					<div class="modal-body">
+						{#if event.checklist}
+							{#if checklistEditMode}
+								<div class="checklist-add-row">
+									<input type="text" bind:value={newChecklistLabel} placeholder="New item" onkeydown={(e) => { if (e.key === 'Enter') addChecklistItem(); }} />
+									<button class="btn-footer-add" onclick={addChecklistItem}>+ Add</button>
+								</div>
+								<div class="checklist-items">
+									{#each event.checklist as item, i (item.id)}
+										<!-- svelte-ignore a11y_no_static_element_interactions -->
+										<div
+											class="checklist-edit-row"
+											class:checklist-drag-over={dragOverChecklistIndex === i && dragChecklistIndex !== i}
+											class:checklist-dragging={dragChecklistIndex === i}
+											draggable="true"
+											ondragstart={() => handleChecklistDragStart(i)}
+											ondragover={(e) => handleChecklistDragOver(e, i)}
+											ondrop={() => handleChecklistDrop(i)}
+											ondragend={handleChecklistDragEnd}
+										>
+											<span class="checklist-drag-handle" aria-label="Drag to reorder">
+												<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+											</span>
+											{#if renamingChecklistId === item.id}
+												<input class="checklist-rename-input" type="text" bind:value={renamingChecklistLabel} onkeydown={(e) => { if (e.key === 'Enter') saveRenameChecklist(); if (e.key === 'Escape') cancelRenameChecklist(); }} />
+												<button class="checklist-action-btn checklist-save-btn" onclick={saveRenameChecklist} aria-label="Save">
+													<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+												</button>
+											{:else}
+												<span class="checklist-edit-label" onclick={() => startRenameChecklist(item.id, item.label)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startRenameChecklist(item.id, item.label); }}>{item.label}</span>
+												<button class="checklist-action-btn checklist-remove-btn" onclick={() => removeChecklistItem(item.id)} aria-label="Remove">
+													&times;
+												</button>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<div class="checklist-progress">
+									<div class="checklist-progress-text">
+										<span>{checklistProgress.done} of {checklistProgress.total} completed</span>
+										<span class="checklist-progress-pct">{checklistProgress.total > 0 ? Math.round((checklistProgress.done / checklistProgress.total) * 100) : 0}%</span>
+									</div>
+									<div class="checklist-progress-bar">
+										<div class="checklist-progress-fill" style="width: {checklistProgress.total > 0 ? (checklistProgress.done / checklistProgress.total) * 100 : 0}%"></div>
+									</div>
+								</div>
+								<div class="checklist-items">
+									{#each event.checklist as item (item.id)}
+										<button class="checklist-item" class:checklist-item-checked={item.checked} onclick={() => toggleChecklistItem(item.id)}>
+											<span class="checklist-checkbox" class:checklist-checkbox-checked={item.checked}>
+												{#if item.checked}
+													<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+														<polyline points="20 6 9 17 4 12" />
+													</svg>
+												{/if}
+											</span>
+											<span class="checklist-label" class:checklist-label-checked={item.checked}>{item.label}</span>
+										</button>
+									{/each}
+								</div>
+							{/if}
+						{/if}
+					</div>
+					<div class="modal-footer">
+						{#if checklistEditMode}
+							<button class="btn-footer-add" onclick={() => { checklistEditMode = false; renamingChecklistId = null; }}>Done</button>
+						{:else}
+							<button class="btn-footer-close" onclick={closeChecklist}>Close</button>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -1270,12 +1515,12 @@
 	.day-label {
 		font-size: var(--font-base);
 		font-weight: 700;
-		color: var(--color-primary);
+		color: #9ca3af;
 	}
 
 	.day-date {
 		font-size: var(--font-sm);
-		color: var(--color-text-secondary);
+		color: #9ca3af;
 	}
 
 	.day-items {
@@ -1285,28 +1530,62 @@
 		margin-top: var(--space-sm);
 	}
 
-	.day-type-picker {
+	.day-add-row {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
 		margin-top: var(--space-md);
 	}
 
-	.day-type-btn {
-		padding: 4px 10px;
+	.day-add-btn {
+		padding: 4px 14px;
 		border: 1px dashed var(--color-border);
 		border-radius: var(--radius-full);
 		background: none;
 		font-size: 0.75rem;
 		font-weight: 600;
+		color: var(--color-primary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
-	.day-type-btn:hover {
+	.day-add-btn:hover {
 		border-style: solid;
 		background: var(--color-bg);
 	}
+
+	.item-type-tabs {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		width: 100%;
+	}
+
+	.item-type-tab {
+		padding: 8px 4px;
+		border: none;
+		background: var(--color-bg);
+		color: var(--color-text-muted);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+		text-align: center;
+	}
+
+	.item-type-tab:not(:last-child) {
+		border-right: 1px solid var(--color-border);
+	}
+
+	.item-type-tab.active {
+		color: white;
+	}
+
+	.item-type-tab:nth-child(1).active { background: #8b5cf6; }
+	.item-type-tab:nth-child(2).active { background: #3b82f6; }
+	.item-type-tab:nth-child(3).active { background: #f59e0b; }
+	.item-type-tab:nth-child(4).active { background: #22c55e; }
 
 	.add-checkbox-row {
 		display: flex;
@@ -2841,4 +3120,297 @@
 		.print-style-midnight .print-empty { color: #999 !important; }
 	}
 
+	/* Wedding actions bar */
+	.wedding-actions {
+		display: flex;
+		gap: var(--space-sm);
+		margin-bottom: var(--space-md);
+	}
+
+	.wedding-action-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 16px;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: opacity 0.15s;
+	}
+
+	.wedding-action-btn:active {
+		opacity: 0.8;
+	}
+
+	.wedding-action-btn svg {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+	}
+
+	.checklist-btn {
+		background: var(--color-surface);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+
+	.edit-action-btn {
+		background: var(--color-surface);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+
+	.checklist-badge {
+		background: var(--color-border);
+		font-size: 0.7rem;
+		font-weight: 700;
+		padding: 1px 7px;
+		border-radius: var(--radius-full);
+		margin-left: 2px;
+	}
+
+	/* Checklist modal */
+	.checklist-modal .modal-body {
+		padding: var(--space-md);
+	}
+
+	.checklist-progress {
+		margin-bottom: var(--space-md);
+	}
+
+	.checklist-progress-text {
+		display: flex;
+		justify-content: space-between;
+		font-size: var(--font-sm);
+		color: var(--color-text-secondary);
+		margin-bottom: 6px;
+	}
+
+	.checklist-progress-pct {
+		font-weight: 600;
+		color: #ec4899;
+	}
+
+	.checklist-progress-bar {
+		width: 100%;
+		height: 8px;
+		background: var(--color-surface);
+		border-radius: var(--radius-full);
+		overflow: hidden;
+	}
+
+	.checklist-progress-fill {
+		height: 100%;
+		background: #ec4899;
+		border-radius: var(--radius-full);
+		transition: width 0.25s ease;
+	}
+
+	.checklist-items {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.checklist-item {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: 10px 12px;
+		background: none;
+		border: none;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		text-align: left;
+		width: 100%;
+		transition: background 0.12s;
+	}
+
+	.checklist-item:hover {
+		background: var(--color-surface);
+	}
+
+	.checklist-checkbox {
+		width: 22px;
+		height: 22px;
+		border: 2px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		transition: all 0.15s;
+	}
+
+	.checklist-checkbox svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.checklist-checkbox-checked {
+		background: #ec4899;
+		border-color: #ec4899;
+		color: white;
+	}
+
+	.checklist-label {
+		font-size: var(--font-sm);
+		color: var(--color-text);
+		transition: all 0.15s;
+	}
+
+	.checklist-label-checked {
+		text-decoration: line-through;
+		color: var(--color-text-secondary);
+	}
+
+	.checklist-add-row {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-sm);
+		margin-bottom: var(--space-md);
+	}
+
+	.checklist-add-row input {
+		padding: 10px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-base);
+		outline: none;
+		color-scheme: dark;
+	}
+
+	.checklist-add-row input:focus {
+		border-color: var(--color-primary);
+	}
+
+	.checklist-add-row .btn-footer-add {
+		align-self: center;
+		flex: none;
+		padding: 8px 24px;
+		font-size: var(--font-sm);
+	}
+
+	/* Checklist edit mode */
+	.checklist-edit-btn {
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+	}
+
+	.checklist-edit-btn svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	.checklist-edit-btn:hover {
+		color: #ec4899;
+	}
+
+	.checklist-edit-row {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		padding: 8px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.checklist-edit-row:last-child {
+		border-bottom: none;
+	}
+
+	.checklist-drag-handle {
+		display: flex;
+		align-items: center;
+		cursor: grab;
+		color: var(--color-text-muted);
+		flex-shrink: 0;
+		padding: 2px;
+		touch-action: none;
+	}
+
+	.checklist-drag-handle:active {
+		cursor: grabbing;
+	}
+
+	.checklist-drag-handle svg {
+		width: 18px;
+		height: 18px;
+	}
+
+	.checklist-dragging {
+		opacity: 0.4;
+	}
+
+	.checklist-drag-over {
+		border-top: 2px solid #ec4899;
+	}
+
+	.checklist-edit-label {
+		flex: 1;
+		font-size: var(--font-sm);
+		color: var(--color-text);
+		cursor: pointer;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.checklist-edit-label:hover {
+		color: #ec4899;
+	}
+
+	.checklist-rename-input {
+		flex: 1;
+		padding: 6px 10px;
+		border: 1px solid #ec4899;
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-size: var(--font-sm);
+		font-family: inherit;
+		outline: none;
+		min-width: 0;
+		color-scheme: dark;
+	}
+
+	.checklist-action-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 4px;
+		display: flex;
+		align-items: center;
+		border-radius: var(--radius-sm);
+		flex-shrink: 0;
+	}
+
+	.checklist-remove-btn {
+		color: var(--color-text-muted);
+		font-size: 1.2rem;
+		line-height: 1;
+	}
+
+	.checklist-remove-btn:hover {
+		color: var(--color-danger, #ef4444);
+	}
+
+	.checklist-save-btn {
+		color: #ec4899;
+	}
+
+	.checklist-save-btn svg {
+		width: 18px;
+		height: 18px;
+	}
 </style>

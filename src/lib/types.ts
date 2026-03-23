@@ -60,6 +60,12 @@ export interface CarRentalItem {
 
 export type ItineraryItem = ActivityItem | FlightItem | HotelItem | CarRentalItem;
 
+export interface ChecklistItem {
+	id: string;
+	label: string;
+	checked: boolean;
+}
+
 export type RSVPStatus = 'going' | 'maybe' | 'not-going' | 'pending';
 
 export interface TribeGroup {
@@ -90,5 +96,6 @@ export interface Event {
 	tribeGroups: TribeGroup[];
 	itinerary: ItineraryItem[];
 	dayTitles?: Record<string, string>;
+	checklist?: ChecklistItem[];
 	createdAt: string;
 }
