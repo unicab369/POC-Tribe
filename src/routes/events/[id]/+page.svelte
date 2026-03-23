@@ -193,12 +193,28 @@
 		resetAddItemFields();
 		addingForDate = date;
 		addingType = type;
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
 	}
 
 	function cancelAddItem() {
 		addingType = null;
 		addingForDate = null;
 		resetAddItemFields();
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
+	}
+
+	function handleAddItemOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) cancelAddItem();
 	}
 
 	function resetAddItemFields() {
@@ -342,98 +358,147 @@
 							{/each}
 						</div>
 					{/if}
-					{#if addingForDate === date && addingType !== null}
-						<div class="inline-form">
-							{#if addingType === 'activity'}
-								<div class="inline-form-header"><span class="inline-form-title" style="color: #8b5cf6">Add Activity</span></div>
-								<div class="add-field"><label>Title</label><input type="text" bind:value={actTitle} placeholder="Activity name" /></div>
-								<div class="add-field-row">
-									<div class="add-field"><label>Start Time</label><input type="time" bind:value={actStartTime} /></div>
-									<div class="add-field"><label>End Time</label><input type="time" bind:value={actEndTime} /></div>
-								</div>
-								<div class="add-field"><label>Location</label><input type="text" bind:value={actLocation} placeholder="Where?" /></div>
-								<div class="add-field"><label>Notes</label><input type="text" bind:value={actNotes} placeholder="Optional notes" /></div>
-								<div class="add-status-section">
-									<label class="add-status-label">Status</label>
-									<div class="add-status-picker">
-										{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-											<button type="button" class="add-status-option" class:active={addItemStatus === s} style={addItemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''} onclick={() => (addItemStatus = s)}>{statusLabels[s]}</button>
-										{/each}
-									</div>
-								</div>
-								<div class="inline-form-actions"><button type="button" class="btn-add-item" onclick={saveActivity}>Add</button><button type="button" class="btn-cancel-item" onclick={cancelAddItem}>Cancel</button></div>
-							{:else if addingType === 'flight'}
-								<div class="inline-form-header"><span class="inline-form-title" style="color: #3b82f6">Add Flight</span></div>
-								<div class="add-field-row">
-									<div class="add-field"><label>Airline</label><input type="text" bind:value={flAirline} placeholder="e.g. United" /></div>
-									<div class="add-field"><label>Flight #</label><input type="text" bind:value={flNumber} placeholder="e.g. UA 482" /></div>
-								</div>
-								<div class="add-field-row">
-									<div class="add-field"><label>From</label><input type="text" bind:value={flFrom} placeholder="e.g. JFK" /></div>
-									<div class="add-field"><label>To</label><input type="text" bind:value={flTo} placeholder="e.g. SFO" /></div>
-								</div>
-								<div class="add-field-row">
-									<div class="add-field"><label>Departure</label><input type="time" bind:value={flDepartureTime} /></div>
-									<div class="add-field"><label>Arrival</label><input type="time" bind:value={flArrivalTime} /></div>
-								</div>
-								<div class="add-status-section">
-									<label class="add-status-label">Status</label>
-									<div class="add-status-picker">
-										{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-											<button type="button" class="add-status-option" class:active={addItemStatus === s} style={addItemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''} onclick={() => (addItemStatus = s)}>{statusLabels[s]}</button>
-										{/each}
-									</div>
-								</div>
-								<div class="inline-form-actions"><button type="button" class="btn-add-item" onclick={saveFlight}>Add</button><button type="button" class="btn-cancel-item" onclick={cancelAddItem}>Cancel</button></div>
-							{:else if addingType === 'hotel'}
-								<div class="inline-form-header"><span class="inline-form-title" style="color: #f59e0b">Add Hotel</span></div>
-								<div class="add-field"><label>Hotel Name</label><input type="text" bind:value={htName} placeholder="Hotel name" /></div>
-								<div class="add-field"><label>Check-out</label><input type="date" bind:value={htCheckOut} min={date} /></div>
-								<div class="add-field"><label>Location</label><input type="text" bind:value={htLocation} placeholder="Hotel location" /></div>
-								<div class="add-field"><label>Confirmation #</label><input type="text" bind:value={htConfirmation} placeholder="Optional" /></div>
-								<div class="add-status-section">
-									<label class="add-status-label">Status</label>
-									<div class="add-status-picker">
-										{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-											<button type="button" class="add-status-option" class:active={addItemStatus === s} style={addItemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''} onclick={() => (addItemStatus = s)}>{statusLabels[s]}</button>
-										{/each}
-									</div>
-								</div>
-								<div class="inline-form-actions"><button type="button" class="btn-add-item" onclick={saveHotel}>Add</button><button type="button" class="btn-cancel-item" onclick={cancelAddItem}>Cancel</button></div>
-							{:else if addingType === 'car-rental'}
-								<div class="inline-form-header"><span class="inline-form-title" style="color: #22c55e">Add Car Rental</span></div>
-								<div class="add-field"><label>Pickup Location</label><input type="text" bind:value={crPickupLocation} placeholder="Pickup location" /></div>
-								<div class="add-field"><label>Pickup Time</label><input type="time" bind:value={crPickupTime} /></div>
-								<label class="add-checkbox-row"><input type="checkbox" bind:checked={crSameDropoff} /><span>Same drop-off location</span></label>
-								{#if !crSameDropoff}
-									<div class="add-field"><label>Return Location</label><input type="text" bind:value={crReturnLocation} placeholder="Return location" /></div>
-								{/if}
-								<div class="add-field-row">
-									<div class="add-field"><label>Return Date</label><input type="date" bind:value={crReturnDate} min={date} /></div>
-									<div class="add-field"><label>Return Time</label><input type="time" bind:value={crReturnTime} /></div>
-								</div>
-								<div class="add-status-section">
-									<label class="add-status-label">Status</label>
-									<div class="add-status-picker">
-										{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-											<button type="button" class="add-status-option" class:active={addItemStatus === s} style={addItemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''} onclick={() => (addItemStatus = s)}>{statusLabels[s]}</button>
-										{/each}
-									</div>
-								</div>
-								<div class="inline-form-actions"><button type="button" class="btn-add-item" onclick={saveCarRental}>Add</button><button type="button" class="btn-cancel-item" onclick={cancelAddItem}>Cancel</button></div>
-							{/if}
-						</div>
-					{:else}
-						<div class="day-type-picker">
-							<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'activity')} style="color: #8b5cf6">+ Activity</button>
-							<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'flight')} style="color: #3b82f6">+ Flight</button>
-							<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'hotel')} style="color: #f59e0b">+ Hotel</button>
-							<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'car-rental')} style="color: #22c55e">+ Car Rental</button>
-						</div>
-					{/if}
+					<div class="day-type-picker">
+						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'activity')} style="color: #8b5cf6">+ Activity</button>
+						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'flight')} style="color: #3b82f6">+ Flight</button>
+						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'hotel')} style="color: #f59e0b">+ Hotel</button>
+						<button type="button" class="day-type-btn" onclick={() => startAddForDay(date, 'car-rental')} style="color: #22c55e">+ Car Rental</button>
+					</div>
 				</div>
 			{/each}
 		</section>
+		{#if addingType !== null}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="modal-overlay" onclick={handleAddItemOverlayClick} onkeydown={() => {}}>
+				<div class="modal">
+					<div class="modal-header">
+						{#if addingType === 'activity'}
+							<h3 style="color: #8b5cf6">Add Activity</h3>
+						{:else if addingType === 'flight'}
+							<h3 style="color: #3b82f6">Add Flight</h3>
+						{:else if addingType === 'hotel'}
+							<h3 style="color: #f59e0b">Add Hotel</h3>
+						{:else if addingType === 'car-rental'}
+							<h3 style="color: #22c55e">Add Car Rental</h3>
+						{/if}
+					</div>
+					<div class="modal-body">
+						<div class="edit-form">
+							{#if addingType === 'activity'}
+								<div class="edit-field">
+									<label class="edit-label">Title</label>
+									<input type="text" bind:value={actTitle} placeholder="Activity name" />
+								</div>
+								<div class="edit-field-row">
+									<div class="edit-field">
+										<label class="edit-label">Start Time</label>
+										<input type="time" bind:value={actStartTime} />
+									</div>
+									<div class="edit-field">
+										<label class="edit-label">End Time</label>
+										<input type="time" bind:value={actEndTime} />
+									</div>
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Location</label>
+									<input type="text" bind:value={actLocation} placeholder="Where?" />
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Notes</label>
+									<input type="text" bind:value={actNotes} placeholder="Optional notes" />
+								</div>
+							{:else if addingType === 'flight'}
+								<div class="edit-field-row">
+									<div class="edit-field">
+										<label class="edit-label">Airline</label>
+										<input type="text" bind:value={flAirline} placeholder="e.g. United" />
+									</div>
+									<div class="edit-field">
+										<label class="edit-label">Flight #</label>
+										<input type="text" bind:value={flNumber} placeholder="e.g. UA 482" />
+									</div>
+								</div>
+								<div class="edit-field-row">
+									<div class="edit-field">
+										<label class="edit-label">From</label>
+										<input type="text" bind:value={flFrom} placeholder="e.g. JFK" />
+									</div>
+									<div class="edit-field">
+										<label class="edit-label">To</label>
+										<input type="text" bind:value={flTo} placeholder="e.g. SFO" />
+									</div>
+								</div>
+								<div class="edit-field-row">
+									<div class="edit-field">
+										<label class="edit-label">Departure</label>
+										<input type="time" bind:value={flDepartureTime} />
+									</div>
+									<div class="edit-field">
+										<label class="edit-label">Arrival</label>
+										<input type="time" bind:value={flArrivalTime} />
+									</div>
+								</div>
+							{:else if addingType === 'hotel'}
+								<div class="edit-field">
+									<label class="edit-label">Hotel Name</label>
+									<input type="text" bind:value={htName} placeholder="Hotel name" />
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Check-out</label>
+									<input type="date" bind:value={htCheckOut} min={addingForDate || ''} />
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Location</label>
+									<input type="text" bind:value={htLocation} placeholder="Hotel location" />
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Confirmation #</label>
+									<input type="text" bind:value={htConfirmation} placeholder="Optional" />
+								</div>
+							{:else if addingType === 'car-rental'}
+								<div class="edit-field">
+									<label class="edit-label">Pickup Location</label>
+									<input type="text" bind:value={crPickupLocation} placeholder="Pickup location" />
+								</div>
+								<div class="edit-field">
+									<label class="edit-label">Pickup Time</label>
+									<input type="time" bind:value={crPickupTime} />
+								</div>
+								<label class="add-checkbox-row"><input type="checkbox" bind:checked={crSameDropoff} /><span>Same drop-off location</span></label>
+								{#if !crSameDropoff}
+									<div class="edit-field">
+										<label class="edit-label">Return Location</label>
+										<input type="text" bind:value={crReturnLocation} placeholder="Return location" />
+									</div>
+								{/if}
+								<div class="edit-field-row">
+									<div class="edit-field">
+										<label class="edit-label">Return Date</label>
+										<input type="date" bind:value={crReturnDate} min={addingForDate || ''} />
+									</div>
+									<div class="edit-field">
+										<label class="edit-label">Return Time</label>
+										<input type="time" bind:value={crReturnTime} />
+									</div>
+								</div>
+							{/if}
+							<div class="add-status-section">
+								<label class="add-status-label">Status</label>
+								<div class="add-status-picker">
+									{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+										<button type="button" class="add-status-option" class:active={addItemStatus === s} style={addItemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''} onclick={() => (addItemStatus = s)}>{statusLabels[s]}</button>
+									{/each}
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button class="btn-footer-add" onclick={() => { if (addingType === 'activity') saveActivity(); else if (addingType === 'flight') saveFlight(); else if (addingType === 'hotel') saveHotel(); else if (addingType === 'car-rental') saveCarRental(); }}>Add</button>
+						<button class="btn-footer-close" onclick={cancelAddItem}>Cancel</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 		{#if showTribe}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="modal-overlay" onclick={handleTribeOverlayClick} onkeydown={() => {}}>
@@ -710,7 +775,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 6px;
-		margin-top: var(--space-sm);
+		margin-top: var(--space-md);
 	}
 
 	.day-type-btn {
@@ -727,62 +792,6 @@
 	.day-type-btn:hover {
 		border-style: solid;
 		background: var(--color-bg);
-	}
-
-	/* Inline add forms */
-	.inline-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
-		padding: var(--space-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		margin-top: var(--space-sm);
-	}
-
-	.inline-form-header {
-		margin-bottom: var(--space-xs);
-	}
-
-	.inline-form-title {
-		font-size: var(--font-base);
-		font-weight: 700;
-	}
-
-	.add-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-xs);
-		flex: 1;
-	}
-
-	.add-field-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-md);
-	}
-
-	.add-field label {
-		font-size: var(--font-sm);
-		font-weight: 600;
-		color: var(--color-text-muted);
-	}
-
-	.inline-form input {
-		padding: 10px 12px;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg);
-		color: var(--color-text);
-		font-size: var(--font-base);
-		outline: none;
-		transition: border-color 0.2s;
-		color-scheme: dark;
-	}
-
-	.inline-form input:focus {
-		border-color: var(--color-primary);
 	}
 
 	.add-checkbox-row {
@@ -838,33 +847,6 @@
 
 	.add-status-option:hover:not(.active) {
 		border-color: var(--color-text-muted);
-	}
-
-	.inline-form-actions {
-		display: flex;
-		gap: var(--space-sm);
-		margin-top: var(--space-xs);
-	}
-
-	.btn-add-item {
-		flex: 1;
-		padding: 10px;
-		background: var(--color-primary);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	.btn-cancel-item {
-		padding: 10px 20px;
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-secondary);
-		font-weight: 600;
-		cursor: pointer;
 	}
 
 	.not-found {
@@ -944,7 +926,7 @@
 		padding: 0 4px;
 	}
 
-	/* Tribe modal */
+	/* Modals */
 	.modal-overlay {
 		position: fixed;
 		top: 0;

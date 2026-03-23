@@ -9,14 +9,30 @@
 
 	let pathname = $derived(page.url.pathname);
 
+	// Remember last visited path per tab so returning restores the detail page
+	let lastPath: Record<string, string> = { '/events': '/events', '/notifications': '/notifications', '/profile': '/profile' };
+
+	$effect(() => {
+		for (const tab of tabs) {
+			if (pathname.startsWith(tab.href)) {
+				lastPath[tab.href] = pathname;
+				break;
+			}
+		}
+	});
+
 	function isActive(href: string): boolean {
 		return pathname.startsWith(href);
+	}
+
+	function tabHref(href: string): string {
+		return lastPath[href] || href;
 	}
 </script>
 
 <nav class="bottom-nav">
 	{#each tabs as tab}
-		<a href={tab.href} class="nav-tab" class:active={isActive(tab.href)}>
+		<a href={tabHref(tab.href)} class="nav-tab" class:active={isActive(tab.href)}>
 			<span class="nav-icon">
 				{#if tab.icon === 'events'}
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

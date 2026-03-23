@@ -21,6 +21,7 @@
 	let addingType = $state<ItineraryItem['type'] | null>(null);
 	let addingForDate = $state<string | null>(null);
 	let itemStatus = $state<ItemStatus>('todo');
+	let savedScrollY = 0;
 
 	const statusLabels: Record<ItemStatus, string> = {
 		todo: 'Todo',
@@ -155,6 +156,12 @@
 		addingType = null;
 		addingForDate = null;
 		resetItemForms();
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.overflow = '';
+		window.scrollTo(0, savedScrollY);
 	}
 
 	function startAddForDay(date: string, type: ItineraryItem['type']) {
@@ -165,6 +172,16 @@
 		else if (type === 'flight') flDate = date;
 		else if (type === 'hotel') htCheckIn = date;
 		else if (type === 'car-rental') crPickupDate = date;
+		savedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = `-${savedScrollY}px`;
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.overflow = 'hidden';
+	}
+
+	function handleAddItemOverlayClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) cancelAdd();
 	}
 
 	function resetItemForms() {
@@ -368,302 +385,238 @@
 							{/each}
 						</div>
 					{/if}
-					{#if addingForDate !== date || addingType === null}
-						<div class="day-type-picker">
-							<button type="button" class="day-type-btn activity" onclick={() => startAddForDay(date, 'activity')}>+ Activity</button>
-							<button type="button" class="day-type-btn flight" onclick={() => startAddForDay(date, 'flight')}>+ Flight</button>
-							<button type="button" class="day-type-btn hotel" onclick={() => startAddForDay(date, 'hotel')}>+ Hotel</button>
-							<button type="button" class="day-type-btn car-rental" onclick={() => startAddForDay(date, 'car-rental')}>+ Car Rental</button>
-						</div>
-					{/if}
+					<div class="day-type-picker">
+						<button type="button" class="day-type-btn activity" onclick={() => startAddForDay(date, 'activity')}>+ Activity</button>
+						<button type="button" class="day-type-btn flight" onclick={() => startAddForDay(date, 'flight')}>+ Flight</button>
+						<button type="button" class="day-type-btn hotel" onclick={() => startAddForDay(date, 'hotel')}>+ Hotel</button>
+						<button type="button" class="day-type-btn car-rental" onclick={() => startAddForDay(date, 'car-rental')}>+ Car Rental</button>
+					</div>
 				</div>
 			{/each}
-		{/if}
-
-		{#if addingType !== null && addingForDate !== null}
-		{#if addingType === 'activity'}
-			<div class="inline-form">
-				<div class="inline-form-header">
-					<span class="inline-form-title" style="color: #8b5cf6">Add Activity</span>
-				</div>
-				<div class="field">
-					<label for="actTitle">Title</label>
-					<input id="actTitle" type="text" bind:value={actTitle} placeholder="Activity name" />
-				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="actDate">Date</label>
-						<input id="actDate" type="date" bind:value={actDate} />
-					</div>
-					<div class="field">
-						<label for="actLocation">Location</label>
-						<input id="actLocation" type="text" bind:value={actLocation} placeholder="Where?" />
-					</div>
-				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="actStartTime">Start Time</label>
-						<input id="actStartTime" type="time" bind:value={actStartTime} />
-					</div>
-					<div class="field">
-						<label for="actEndTime">End Time</label>
-						<input id="actEndTime" type="time" bind:value={actEndTime} />
-					</div>
-				</div>
-				<div class="field">
-					<label for="actNotes">Notes</label>
-					<input id="actNotes" type="text" bind:value={actNotes} placeholder="Optional notes" />
-				</div>
-				<div class="status-picker-section">
-					<label class="status-picker-label">Status</label>
-					<div class="status-picker">
-						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-							<button
-								type="button"
-								class="status-option"
-								class:active={itemStatus === s}
-								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
-								onclick={() => (itemStatus = s)}
-							>
-								{statusLabels[s]}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div class="inline-form-actions">
-					<button type="button" class="btn-add" onclick={addActivity}>Add</button>
-					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
-				</div>
-			</div>
-		{:else if addingType === 'flight'}
-			<div class="inline-form">
-				<div class="inline-form-header">
-					<span class="inline-form-title" style="color: #3b82f6">Add Flight</span>
-				</div>
-				<div class="flight-tabs">
-					<button
-						type="button"
-						class="flight-tab"
-						class:active={flightTab === 'outbound'}
-						onclick={() => (flightTab = 'outbound')}
-					>
-						Outbound
-					</button>
-					<button
-						type="button"
-						class="flight-tab"
-						class:active={flightTab === 'return'}
-						onclick={() => (flightTab = 'return')}
-					>
-						Return
-					</button>
-				</div>
-				{#if flightTab === 'outbound'}
-					<div class="field-row">
-						<div class="field">
-							<label for="flAirline" class:required={flOutAllRequired}>Airline</label>
-							<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flOutAllRequired && !flAirline.trim()} />
-						</div>
-						<div class="field">
-							<label for="flNumber" class:required={flOutAllRequired}>Flight #</label>
-							<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flOutAllRequired && !flNumber.trim()} />
-						</div>
-					</div>
-					<div class="field">
-						<label for="flDate" class:required={flOutAllRequired}>Date</label>
-						<input id="flDate" type="date" bind:value={flDate} class:input-error={showFlightErrors && flOutAllRequired && !flDate} />
-					</div>
-					<div class="field-row">
-						<div class="field">
-							<label for="flFrom" class:required={flOutFromToRequired || flOutAllRequired}>From</label>
-							<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flFrom.trim()} />
-						</div>
-						<div class="field">
-							<label for="flTo" class:required={flOutFromToRequired || flOutAllRequired}>To</label>
-							<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flTo.trim()} />
-						</div>
-					</div>
-					<div class="field-row">
-						<div class="field">
-							<label for="flDepartureTime" class:required={flOutAllRequired}>Departure</label>
-							<input id="flDepartureTime" type="time" bind:value={flDepartureTime} class:input-error={showFlightErrors && flOutAllRequired && !flDepartureTime} />
-						</div>
-						<div class="field">
-							<label for="flArrivalTime" class:required={flOutAllRequired}>Arrival</label>
-							<input id="flArrivalTime" type="time" bind:value={flArrivalTime} class:input-error={showFlightErrors && flOutAllRequired && !flArrivalTime} />
-						</div>
-					</div>
-				{:else}
-					<div class="field-row">
-						<div class="field">
-							<label for="flRetAirline" class:required={flRetAllRequired}>Airline</label>
-							<input id="flRetAirline" type="text" bind:value={flRetAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flRetAllRequired && !flRetAirline.trim()} />
-						</div>
-						<div class="field">
-							<label for="flRetNumber" class:required={flRetAllRequired}>Flight #</label>
-							<input id="flRetNumber" type="text" bind:value={flRetNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flRetAllRequired && !flRetNumber.trim()} />
-						</div>
-					</div>
-					<div class="field">
-						<label for="flRetDate">Date</label>
-						<input id="flRetDate" type="date" bind:value={flRetDate} />
-					</div>
-					<div class="field-row">
-						<div class="field">
-							<label for="flRetFrom" class:required={flRetFromToRequired || flRetAllRequired}>From</label>
-							<input id="flRetFrom" type="text" bind:value={flRetFrom} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetFrom.trim()} />
-						</div>
-						<div class="field">
-							<label for="flRetTo" class:required={flRetFromToRequired || flRetAllRequired}>To</label>
-							<input id="flRetTo" type="text" bind:value={flRetTo} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetTo.trim()} />
-						</div>
-					</div>
-					<div class="field-row">
-						<div class="field">
-							<label for="flRetDepartureTime" class:required={flRetAllRequired}>Departure</label>
-							<input id="flRetDepartureTime" type="time" bind:value={flRetDepartureTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetDepartureTime} />
-						</div>
-						<div class="field">
-							<label for="flRetArrivalTime" class:required={flRetAllRequired}>Arrival</label>
-							<input id="flRetArrivalTime" type="time" bind:value={flRetArrivalTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetArrivalTime} />
-						</div>
-					</div>
-				{/if}
-				<div class="status-picker-section">
-					<label class="status-picker-label">Status</label>
-					<div class="status-picker">
-						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-							<button
-								type="button"
-								class="status-option"
-								class:active={itemStatus === s}
-								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
-								onclick={() => (itemStatus = s)}
-							>
-								{statusLabels[s]}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div class="inline-form-actions">
-					<button type="button" class="btn-add" onclick={addFlight}>Add</button>
-					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
-				</div>
-			</div>
-		{:else if addingType === 'hotel'}
-			<div class="inline-form">
-				<div class="inline-form-header">
-					<span class="inline-form-title" style="color: #f59e0b">Add Hotel</span>
-				</div>
-				<div class="field">
-					<label for="htName">Hotel Name</label>
-					<input id="htName" type="text" bind:value={htName} placeholder="Hotel name" />
-				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="htCheckIn">Check-in</label>
-						<input id="htCheckIn" type="date" bind:value={htCheckIn} />
-					</div>
-					<div class="field">
-						<label for="htCheckOut">Check-out</label>
-						<input id="htCheckOut" type="date" bind:value={htCheckOut} />
-					</div>
-				</div>
-				<div class="field">
-					<label for="htLocation">Location</label>
-					<input id="htLocation" type="text" bind:value={htLocation} placeholder="Hotel location" />
-				</div>
-				<div class="field">
-					<label for="htConfirmation">Confirmation #</label>
-					<input id="htConfirmation" type="text" bind:value={htConfirmation} placeholder="Optional" />
-				</div>
-				<div class="status-picker-section">
-					<label class="status-picker-label">Status</label>
-					<div class="status-picker">
-						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-							<button
-								type="button"
-								class="status-option"
-								class:active={itemStatus === s}
-								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
-								onclick={() => (itemStatus = s)}
-							>
-								{statusLabels[s]}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div class="inline-form-actions">
-					<button type="button" class="btn-add" onclick={addHotel}>Add</button>
-					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
-				</div>
-			</div>
-		{:else if addingType === 'car-rental'}
-			<div class="inline-form">
-				<div class="inline-form-header">
-					<span class="inline-form-title" style="color: #22c55e">Add Car Rental</span>
-				</div>
-				<div class="field">
-					<label for="crPickupLocation">Pickup Location</label>
-					<input id="crPickupLocation" type="text" bind:value={crPickupLocation} placeholder="Pickup location" />
-				</div>
-				<div class="field-row">
-					<div class="field">
-						<label for="crPickupDate">Pickup Date</label>
-						<input id="crPickupDate" type="date" bind:value={crPickupDate} />
-					</div>
-					<div class="field">
-						<label for="crPickupTime">Pickup Time</label>
-						<input id="crPickupTime" type="time" bind:value={crPickupTime} />
-					</div>
-				</div>
-				<label class="checkbox-row">
-					<input type="checkbox" bind:checked={crSameDropoff} />
-					<span>Same drop-off location</span>
-				</label>
-				{#if !crSameDropoff}
-					<div class="field">
-						<label for="crReturnLocation">Return Location</label>
-						<input id="crReturnLocation" type="text" bind:value={crReturnLocation} placeholder="Return location" />
-					</div>
-				{/if}
-				<div class="field-row">
-					<div class="field">
-						<label for="crReturnDate">Return Date</label>
-						<input id="crReturnDate" type="date" bind:value={crReturnDate} min={crMinReturnDate} />
-					</div>
-					<div class="field">
-						<label for="crReturnTime">Return Time</label>
-						<input id="crReturnTime" type="time" bind:value={crReturnTime} />
-					</div>
-				</div>
-				<div class="status-picker-section">
-					<label class="status-picker-label">Status</label>
-					<div class="status-picker">
-						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
-							<button
-								type="button"
-								class="status-option"
-								class:active={itemStatus === s}
-								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
-								onclick={() => (itemStatus = s)}
-							>
-								{statusLabels[s]}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div class="inline-form-actions">
-					<button type="button" class="btn-add" onclick={addCarRental}>Add</button>
-					<button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
-				</div>
-			</div>
-		{/if}
 		{/if}
 
 		<button type="submit" class="submit-btn" class:submit-disabled={!isValid} disabled={showSuccess}>Create Event</button>
 	</form>
 </div>
+
+{#if addingType !== null && addingForDate !== null}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-overlay" onclick={handleAddItemOverlayClick} onkeydown={() => {}}>
+		<div class="modal">
+			<div class="modal-header">
+				{#if addingType === 'activity'}
+					<h3 style="color: #8b5cf6">Add Activity</h3>
+				{:else if addingType === 'flight'}
+					<h3 style="color: #3b82f6">Add Flight</h3>
+				{:else if addingType === 'hotel'}
+					<h3 style="color: #f59e0b">Add Hotel</h3>
+				{:else if addingType === 'car-rental'}
+					<h3 style="color: #22c55e">Add Car Rental</h3>
+				{/if}
+			</div>
+			<div class="modal-body">
+				{#if addingType === 'activity'}
+					<div class="field">
+						<label for="actTitle">Title</label>
+						<input id="actTitle" type="text" bind:value={actTitle} placeholder="Activity name" />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="actDate">Date</label>
+							<input id="actDate" type="date" bind:value={actDate} />
+						</div>
+						<div class="field">
+							<label for="actLocation">Location</label>
+							<input id="actLocation" type="text" bind:value={actLocation} placeholder="Where?" />
+						</div>
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="actStartTime">Start Time</label>
+							<input id="actStartTime" type="time" bind:value={actStartTime} />
+						</div>
+						<div class="field">
+							<label for="actEndTime">End Time</label>
+							<input id="actEndTime" type="time" bind:value={actEndTime} />
+						</div>
+					</div>
+					<div class="field">
+						<label for="actNotes">Notes</label>
+						<input id="actNotes" type="text" bind:value={actNotes} placeholder="Optional notes" />
+					</div>
+				{:else if addingType === 'flight'}
+					<div class="flight-tabs">
+						<button
+							type="button"
+							class="flight-tab"
+							class:active={flightTab === 'outbound'}
+							onclick={() => (flightTab = 'outbound')}
+						>
+							Outbound
+						</button>
+						<button
+							type="button"
+							class="flight-tab"
+							class:active={flightTab === 'return'}
+							onclick={() => (flightTab = 'return')}
+						>
+							Return
+						</button>
+					</div>
+					{#if flightTab === 'outbound'}
+						<div class="field-row">
+							<div class="field">
+								<label for="flAirline" class:required={flOutAllRequired}>Airline</label>
+								<input id="flAirline" type="text" bind:value={flAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flOutAllRequired && !flAirline.trim()} />
+							</div>
+							<div class="field">
+								<label for="flNumber" class:required={flOutAllRequired}>Flight #</label>
+								<input id="flNumber" type="text" bind:value={flNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flOutAllRequired && !flNumber.trim()} />
+							</div>
+						</div>
+						<div class="field">
+							<label for="flDate" class:required={flOutAllRequired}>Date</label>
+							<input id="flDate" type="date" bind:value={flDate} class:input-error={showFlightErrors && flOutAllRequired && !flDate} />
+						</div>
+						<div class="field-row">
+							<div class="field">
+								<label for="flFrom" class:required={flOutFromToRequired || flOutAllRequired}>From</label>
+								<input id="flFrom" type="text" bind:value={flFrom} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flFrom.trim()} />
+							</div>
+							<div class="field">
+								<label for="flTo" class:required={flOutFromToRequired || flOutAllRequired}>To</label>
+								<input id="flTo" type="text" bind:value={flTo} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flOutFromToRequired || flOutAllRequired) && !flTo.trim()} />
+							</div>
+						</div>
+						<div class="field-row">
+							<div class="field">
+								<label for="flDepartureTime" class:required={flOutAllRequired}>Departure</label>
+								<input id="flDepartureTime" type="time" bind:value={flDepartureTime} class:input-error={showFlightErrors && flOutAllRequired && !flDepartureTime} />
+							</div>
+							<div class="field">
+								<label for="flArrivalTime" class:required={flOutAllRequired}>Arrival</label>
+								<input id="flArrivalTime" type="time" bind:value={flArrivalTime} class:input-error={showFlightErrors && flOutAllRequired && !flArrivalTime} />
+							</div>
+						</div>
+					{:else}
+						<div class="field-row">
+							<div class="field">
+								<label for="flRetAirline" class:required={flRetAllRequired}>Airline</label>
+								<input id="flRetAirline" type="text" bind:value={flRetAirline} placeholder="e.g. United" class:input-error={showFlightErrors && flRetAllRequired && !flRetAirline.trim()} />
+							</div>
+							<div class="field">
+								<label for="flRetNumber" class:required={flRetAllRequired}>Flight #</label>
+								<input id="flRetNumber" type="text" bind:value={flRetNumber} placeholder="e.g. UA 482" class:input-error={showFlightErrors && flRetAllRequired && !flRetNumber.trim()} />
+							</div>
+						</div>
+						<div class="field">
+							<label for="flRetDate">Date</label>
+							<input id="flRetDate" type="date" bind:value={flRetDate} />
+						</div>
+						<div class="field-row">
+							<div class="field">
+								<label for="flRetFrom" class:required={flRetFromToRequired || flRetAllRequired}>From</label>
+								<input id="flRetFrom" type="text" bind:value={flRetFrom} placeholder="e.g. SFO" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetFrom.trim()} />
+							</div>
+							<div class="field">
+								<label for="flRetTo" class:required={flRetFromToRequired || flRetAllRequired}>To</label>
+								<input id="flRetTo" type="text" bind:value={flRetTo} placeholder="e.g. JFK" class:input-error={showFlightErrors && (flRetFromToRequired || flRetAllRequired) && !flRetTo.trim()} />
+							</div>
+						</div>
+						<div class="field-row">
+							<div class="field">
+								<label for="flRetDepartureTime" class:required={flRetAllRequired}>Departure</label>
+								<input id="flRetDepartureTime" type="time" bind:value={flRetDepartureTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetDepartureTime} />
+							</div>
+							<div class="field">
+								<label for="flRetArrivalTime" class:required={flRetAllRequired}>Arrival</label>
+								<input id="flRetArrivalTime" type="time" bind:value={flRetArrivalTime} class:input-error={showFlightErrors && flRetAllRequired && !flRetArrivalTime} />
+							</div>
+						</div>
+					{/if}
+				{:else if addingType === 'hotel'}
+					<div class="field">
+						<label for="htName">Hotel Name</label>
+						<input id="htName" type="text" bind:value={htName} placeholder="Hotel name" />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="htCheckIn">Check-in</label>
+							<input id="htCheckIn" type="date" bind:value={htCheckIn} />
+						</div>
+						<div class="field">
+							<label for="htCheckOut">Check-out</label>
+							<input id="htCheckOut" type="date" bind:value={htCheckOut} />
+						</div>
+					</div>
+					<div class="field">
+						<label for="htLocation">Location</label>
+						<input id="htLocation" type="text" bind:value={htLocation} placeholder="Hotel location" />
+					</div>
+					<div class="field">
+						<label for="htConfirmation">Confirmation #</label>
+						<input id="htConfirmation" type="text" bind:value={htConfirmation} placeholder="Optional" />
+					</div>
+				{:else if addingType === 'car-rental'}
+					<div class="field">
+						<label for="crPickupLocation">Pickup Location</label>
+						<input id="crPickupLocation" type="text" bind:value={crPickupLocation} placeholder="Pickup location" />
+					</div>
+					<div class="field-row">
+						<div class="field">
+							<label for="crPickupDate">Pickup Date</label>
+							<input id="crPickupDate" type="date" bind:value={crPickupDate} />
+						</div>
+						<div class="field">
+							<label for="crPickupTime">Pickup Time</label>
+							<input id="crPickupTime" type="time" bind:value={crPickupTime} />
+						</div>
+					</div>
+					<label class="checkbox-row">
+						<input type="checkbox" bind:checked={crSameDropoff} />
+						<span>Same drop-off location</span>
+					</label>
+					{#if !crSameDropoff}
+						<div class="field">
+							<label for="crReturnLocation">Return Location</label>
+							<input id="crReturnLocation" type="text" bind:value={crReturnLocation} placeholder="Return location" />
+						</div>
+					{/if}
+					<div class="field-row">
+						<div class="field">
+							<label for="crReturnDate">Return Date</label>
+							<input id="crReturnDate" type="date" bind:value={crReturnDate} min={crMinReturnDate} />
+						</div>
+						<div class="field">
+							<label for="crReturnTime">Return Time</label>
+							<input id="crReturnTime" type="time" bind:value={crReturnTime} />
+						</div>
+					</div>
+				{/if}
+				<div class="status-picker-section">
+					<label class="status-picker-label">Status</label>
+					<div class="status-picker">
+						{#each (['todo', 'voting', 'finalized', 'cancelled'] as const) as s}
+							<button
+								type="button"
+								class="status-option"
+								class:active={itemStatus === s}
+								style={itemStatus === s ? `color: ${statusColors[s]}; border-color: ${statusColors[s]}` : ''}
+								onclick={() => (itemStatus = s)}
+							>
+								{statusLabels[s]}
+							</button>
+						{/each}
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn-footer-add" onclick={() => { if (addingType === 'activity') addActivity(); else if (addingType === 'flight') addFlight(); else if (addingType === 'hotel') addHotel(); else if (addingType === 'car-rental') addCarRental(); }}>Add</button>
+				<button type="button" class="btn-footer-close" onclick={cancelAdd}>Cancel</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if snackbar}
 	<div class="snackbar">{snackbar}</div>
@@ -888,12 +841,6 @@
 	}
 
 	/* Itinerary builder */
-	.itinerary-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
-	}
-
 	.itinerary-row {
 		display: flex;
 		align-items: center;
@@ -933,94 +880,6 @@
 		cursor: pointer;
 		padding: 0 4px;
 		line-height: 1;
-	}
-
-	.add-item-section {
-		text-align: center;
-	}
-
-	.add-label {
-		font-size: var(--font-sm);
-		color: var(--color-text-muted);
-		margin-bottom: var(--space-sm);
-	}
-
-	.type-picker {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-sm);
-	}
-
-	.type-btn {
-		padding: 10px;
-		border: 2px dashed var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		font-size: var(--font-sm);
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.type-btn.activity { color: #8b5cf6; }
-	.type-btn.flight { color: #3b82f6; }
-	.type-btn.hotel { color: #f59e0b; }
-	.type-btn.car-rental { color: #22c55e; }
-
-	.type-btn:hover {
-		border-style: solid;
-		background: var(--color-bg);
-	}
-
-	.inline-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-sm);
-		padding: var(--space-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-	}
-
-	.inline-form-header {
-		margin-bottom: var(--space-xs);
-	}
-
-	.inline-form-title {
-		font-size: var(--font-base);
-		font-weight: 700;
-	}
-
-	.inline-form-actions {
-		display: flex;
-		gap: var(--space-sm);
-		margin-top: var(--space-xs);
-	}
-
-	.btn-add {
-		flex: 1;
-		padding: 10px;
-		background: var(--color-primary);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-weight: 600;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.btn-add:hover {
-		background: var(--color-primary-dark);
-	}
-
-	.btn-cancel {
-		padding: 10px 20px;
-		background: none;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		color: var(--color-text-secondary);
-		font-weight: 600;
-		cursor: pointer;
 	}
 
 	.checkbox-row {
@@ -1086,6 +945,7 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		overflow: hidden;
+		margin-bottom: var(--space-sm);
 	}
 
 	.flight-tab {
@@ -1111,5 +971,83 @@
 
 	input.input-error {
 		border-color: var(--color-danger, #ef4444);
+	}
+
+	/* Modal styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: stretch;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: var(--color-surface);
+		width: 100%;
+		max-width: 600px;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		position: relative;
+	}
+
+	.modal-header {
+		padding: var(--space-md) var(--space-md) var(--space-sm);
+		border-bottom: 1px solid var(--color-border);
+		text-align: center;
+	}
+
+	.modal-header h3 {
+		font-size: var(--font-xl);
+		font-weight: 700;
+		color: var(--color-text);
+	}
+
+	.modal-body {
+		padding: var(--space-md);
+		overflow-y: auto;
+		flex: 1 1 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-md);
+	}
+
+	.modal-footer {
+		padding: var(--space-md);
+		border-top: 1px solid var(--color-border);
+		flex-shrink: 0;
+		display: flex;
+		gap: var(--space-sm);
+	}
+
+	.btn-footer-add {
+		flex: 1;
+		padding: 14px;
+		background: var(--color-primary);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.btn-footer-close {
+		flex: 1;
+		padding: 14px;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
 	}
 </style>

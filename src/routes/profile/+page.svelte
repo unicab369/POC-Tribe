@@ -8,7 +8,6 @@
 		memberSince: 'March 2026'
 	};
 
-	let eventCount = $derived($events.length);
 	let myEvents = $derived($events.slice(-3).reverse());
 </script>
 
@@ -23,13 +22,6 @@
 			<h2>{user.name}</h2>
 			<p class="email">{user.email}</p>
 			<p class="member-since">Member since {user.memberSince}</p>
-		</div>
-	</div>
-
-	<div class="stats-row">
-		<div class="stat-card">
-			<span class="stat-number">{eventCount}</span>
-			<span class="stat-label">Events Created</span>
 		</div>
 	</div>
 
@@ -112,30 +104,6 @@
 	.member-since {
 		color: var(--color-text-muted);
 		font-size: 0.75rem;
-	}
-
-	.stats-row {
-		margin-bottom: var(--space-xl);
-	}
-
-	.stat-card {
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		padding: var(--space-lg);
-		text-align: center;
-		border: 1px solid var(--color-border);
-	}
-
-	.stat-number {
-		display: block;
-		font-size: var(--font-3xl);
-		font-weight: 700;
-		color: var(--color-primary);
-	}
-
-	.stat-label {
-		font-size: var(--font-sm);
-		color: var(--color-text-secondary);
 	}
 
 	.my-events {
