@@ -287,6 +287,64 @@
 		editingMember = false;
 	}
 
+	// Invite functionality
+	let showInvitePicker = $state(false);
+	let invitePhone = $state('');
+	let inviteMessage = $state('');
+
+	function buildInviteMessage(member?: TribeMember): string {
+		if (!event) return '';
+		const lines = [
+			`You're invited to ${event.title}!`,
+			`${formatDate(event.startDate)} – ${formatDate(event.endDate)}`,
+			event.location ? `Location: ${event.location}` : '',
+			'',
+			`View event: ${window.location.href}`
+		];
+		return lines.filter(Boolean).join('\n');
+	}
+
+	function inviteMember(member: TribeMember) {
+		const message = buildInviteMessage(member);
+		const encoded = encodeURIComponent(message);
+
+		if (member.phone) {
+			const phone = member.phone.replace(/\D/g, '');
+			showInviteOptions(phone, encoded, message);
+		} else {
+			shareOrCopy(message);
+		}
+	}
+
+	function showInviteOptions(phone: string, encoded: string, raw: string) {
+		invitePhone = phone;
+		inviteMessage = raw;
+		showInvitePicker = true;
+	}
+
+	function sendWhatsApp() {
+		window.open(`https://wa.me/${invitePhone}?text=${encodeURIComponent(inviteMessage)}`, '_blank');
+		showInvitePicker = false;
+	}
+
+	function sendSMS() {
+		window.open(`sms:${invitePhone}?body=${encodeURIComponent(inviteMessage)}`, '_self');
+		showInvitePicker = false;
+	}
+
+	function shareOrCopy(message: string) {
+		if (navigator.share) {
+			navigator.share({ text: message });
+		} else {
+			navigator.clipboard.writeText(message);
+		}
+	}
+
+	function inviteAll() {
+		const message = buildInviteMessage();
+		shareOrCopy(message);
+	}
+
 	function saveMember() {
 		if (!memberFirstName.trim() || !memberLastName.trim()) {
 			showMemberErrors = true;
@@ -654,8 +712,7 @@
 	let editingStateId = $state<string | null>(null);
 	let editingStateLabel = $state('');
 	let editingStateColor = $state('');
-	let showModePicker = $state(false);
-	let showStatesEditor = $state(false);
+	let showChecklistSettings = $state(false);
 
 	function selectChecklistMode(mode: 'simple' | 'states') {
 		if (!event) return;
@@ -670,7 +727,6 @@
 			}
 		}
 		updateEvent(event.id, updates);
-		showModePicker = false;
 	}
 
 	function addChecklistState() {
@@ -1266,15 +1322,34 @@
 							<button class="btn-footer-close" onclick={cancelEditMember}>Cancel</button>
 						{:else if viewingMemberId}
 							<button class="btn-footer-add" onclick={startEditMember}>Edit</button>
+							<button class="btn-footer-invite" onclick={() => viewingMember && inviteMember(viewingMember)}>Invite</button>
 							<button class="btn-footer-close" onclick={closeMemberDetail}>Back</button>
 						{:else if addingMember}
 							<button class="btn-footer-add" onclick={saveMember}>Add</button>
 							<button class="btn-footer-close" onclick={cancelAddMember}>Cancel</button>
 						{:else}
 							<button class="btn-footer-add" onclick={startAddMember}>Add</button>
+							<button class="btn-footer-invite" onclick={inviteAll}>Invite All</button>
 							<button class="btn-footer-close" onclick={closeTribe}>Close</button>
 						{/if}
 					</div>
+				</div>
+			</div>
+		{/if}
+		{#if showInvitePicker}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="invite-picker-overlay" onclick={() => (showInvitePicker = false)} onkeydown={() => {}}>
+				<div class="invite-picker" onclick={(e) => e.stopPropagation()}>
+					<h4>Send invite via</h4>
+					<button class="invite-option invite-whatsapp" onclick={sendWhatsApp}>
+						WhatsApp
+					</button>
+					<button class="invite-option invite-sms" onclick={sendSMS}>
+						SMS
+					</button>
+					<button class="invite-picker-cancel" onclick={() => (showInvitePicker = false)}>
+						Cancel
+					</button>
 				</div>
 			</div>
 		{/if}
@@ -1439,52 +1514,12 @@
 					<div class="modal-body">
 						{#if event.checklist}
 							{#if checklistEditMode}
-								<div class="checklist-mode-toggle">
-									<button class="mode-picker-btn" onclick={() => (showModePicker = !showModePicker)}>
+								<div class="checklist-settings-row">
+									<button class="mode-picker-btn" onclick={() => (showChecklistSettings = true)}>
 										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-										Checklist Mode
+										Settings
 									</button>
-									{#if showModePicker}
-										<!-- svelte-ignore a11y_no_static_element_interactions -->
-										<div class="mode-picker-overlay" onclick={() => (showModePicker = false)} onkeydown={() => {}}></div>
-										<div class="mode-picker-popup">
-											<button class="mode-option" class:active={event.checklistMode !== 'states'} onclick={() => selectChecklistMode('simple')}>
-												<span class="mode-option-header">
-													<span class="mode-option-icon">
-														<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-													</span>
-													<span class="mode-option-title">Simple Checkboxes</span>
-													{#if event.checklistMode !== 'states'}
-														<span class="mode-active-badge">Active</span>
-													{/if}
-												</span>
-												<span class="mode-option-desc">Each item is either done or not done. Great for simple to-do lists.</span>
-											</button>
-											<button class="mode-option" class:active={event.checklistMode === 'states'} onclick={() => selectChecklistMode('states')}>
-												<span class="mode-option-header">
-													<span class="mode-option-icon">
-														<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-													</span>
-													<span class="mode-option-title">Custom States</span>
-													{#if event.checklistMode === 'states'}
-														<span class="mode-active-badge">Active</span>
-													{/if}
-												</span>
-												<span class="mode-option-desc">Track items through multiple stages like Todo, In Progress, and Completed. Customize colors and labels.</span>
-											</button>
-										</div>
-									{/if}
 								</div>
-								{#if event.checklistMode === 'states' && event.checklistStates}
-									<button class="manage-states-btn" onclick={() => (showStatesEditor = true)}>
-										<span class="manage-states-dots">
-											{#each event.checklistStates.slice(0, 4) as s}
-												<span class="state-dot-mini" style="background: {s.color}"></span>
-											{/each}
-										</span>
-										Manage States
-									</button>
-								{/if}
 								<div class="checklist-add-row">
 									<input type="text" bind:value={newChecklistLabel} placeholder="New item" onkeydown={(e) => { if (e.key === 'Enter') addChecklistItem(); }} />
 									<button class="btn-footer-add" onclick={addChecklistItem}>+ Add</button>
@@ -1582,41 +1617,75 @@
 				</div>
 			</div>
 		{/if}
-		{#if showStatesEditor && event.checklistStates}
+		{#if showChecklistSettings}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="modal-overlay" onclick={(e) => { if (e.target === e.currentTarget) showStatesEditor = false; }} onkeydown={() => {}}>
-				<div class="modal states-editor-modal">
+			<div class="modal-overlay" onclick={(e) => { if (e.target === e.currentTarget) { showChecklistSettings = false; editingStateId = null; } }} onkeydown={() => {}}>
+				<div class="modal checklist-settings-modal">
 					<div class="modal-header">
-						<h3 style="color: #ec4899">Manage States</h3>
+						<h3 style="color: #ec4899">Checklist Settings</h3>
 					</div>
 					<div class="modal-body">
-						<div class="checklist-states-editor">
-							{#each event.checklistStates as state (state.id)}
-								<div class="state-editor-row">
-									<input type="color" value={state.color} onchange={(e) => updateStateColor(state.id, (e.target as HTMLInputElement).value)} />
-									{#if editingStateId === state.id}
-										<input class="state-label-input" type="text" bind:value={editingStateLabel} onkeydown={(e) => { if (e.key === 'Enter') saveEditState(); if (e.key === 'Escape') { editingStateId = null; } }} />
-										<button class="checklist-action-btn checklist-save-btn" onclick={saveEditState} aria-label="Save">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-										</button>
-									{:else}
-										<span class="state-label" onclick={() => startEditState(state.id)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEditState(state.id); }}>{state.label}</span>
-										{#if event.checklistStates.length > 1}
-											<button class="checklist-action-btn checklist-remove-btn" onclick={() => removeChecklistState(state.id)} aria-label="Remove state">
-												&times;
-											</button>
+						<div class="settings-section">
+							<div class="settings-section-label">Mode</div>
+							<div class="settings-mode-options">
+								<button class="mode-option" class:active={event.checklistMode !== 'states'} onclick={() => selectChecklistMode('simple')}>
+									<span class="mode-option-header">
+										<span class="mode-option-icon">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+										</span>
+										<span class="mode-option-title">Simple Checkboxes</span>
+										{#if event.checklistMode !== 'states'}
+											<span class="mode-active-badge">Active</span>
 										{/if}
-									{/if}
-								</div>
-							{/each}
-							<div class="state-add-row">
-								<input type="text" placeholder="New state" bind:value={newStateName} onkeydown={(e) => { if (e.key === 'Enter') addChecklistState(); }} />
-								<button class="btn-footer-add" onclick={addChecklistState}>+ Add</button>
+									</span>
+									<span class="mode-option-desc">Each item is either done or not done.</span>
+								</button>
+								<button class="mode-option" class:active={event.checklistMode === 'states'} onclick={() => selectChecklistMode('states')}>
+									<span class="mode-option-header">
+										<span class="mode-option-icon">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+										</span>
+										<span class="mode-option-title">Custom States</span>
+										{#if event.checklistMode === 'states'}
+											<span class="mode-active-badge">Active</span>
+										{/if}
+									</span>
+									<span class="mode-option-desc">Track items through multiple stages.</span>
+								</button>
 							</div>
 						</div>
+						{#if event.checklistMode === 'states' && event.checklistStates}
+							<div class="settings-section">
+								<div class="settings-section-label">Manage States</div>
+								<div class="checklist-states-editor">
+									{#each event.checklistStates as state (state.id)}
+										<div class="state-editor-row">
+											<input type="color" value={state.color} onchange={(e) => updateStateColor(state.id, (e.target as HTMLInputElement).value)} />
+											{#if editingStateId === state.id}
+												<input class="state-label-input" type="text" bind:value={editingStateLabel} onkeydown={(e) => { if (e.key === 'Enter') saveEditState(); if (e.key === 'Escape') { editingStateId = null; } }} />
+												<button class="checklist-action-btn checklist-save-btn" onclick={saveEditState} aria-label="Save">
+													<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+												</button>
+											{:else}
+												<span class="state-label" onclick={() => startEditState(state.id)} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') startEditState(state.id); }}>{state.label}</span>
+												{#if event.checklistStates.length > 1}
+													<button class="checklist-action-btn checklist-remove-btn" onclick={() => removeChecklistState(state.id)} aria-label="Remove state">
+														&times;
+													</button>
+												{/if}
+											{/if}
+										</div>
+									{/each}
+									<div class="state-add-row">
+										<input type="text" placeholder="New state" bind:value={newStateName} onkeydown={(e) => { if (e.key === 'Enter') addChecklistState(); }} />
+										<button class="btn-footer-add" onclick={addChecklistState}>+ Add</button>
+									</div>
+								</div>
+							</div>
+						{/if}
 					</div>
 					<div class="modal-footer">
-						<button class="btn-footer-close" onclick={() => { showStatesEditor = false; editingStateId = null; }}>Done</button>
+						<button class="btn-footer-close" onclick={() => { showChecklistSettings = false; editingStateId = null; }}>Done</button>
 					</div>
 				</div>
 			</div>
@@ -2084,6 +2153,78 @@
 
 	.btn-footer-close {
 		flex: 1;
+		padding: 14px;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		color: var(--color-text-secondary);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.btn-footer-invite {
+		flex: 1;
+		padding: 14px;
+		background: #22c55e;
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-base);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.invite-picker-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.invite-picker {
+		background: var(--color-surface);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+		padding: 24px;
+		width: 100%;
+		max-width: 500px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.invite-picker h4 {
+		margin: 0 0 4px 0;
+		font-size: var(--font-lg);
+		text-align: center;
+		color: var(--color-text);
+	}
+
+	.invite-option {
+		padding: 16px;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-base);
+		font-weight: 600;
+		color: white;
+		cursor: pointer;
+	}
+
+	.invite-whatsapp {
+		background: #25d366;
+	}
+
+	.invite-sms {
+		background: #3b82f6;
+	}
+
+	.invite-picker-cancel {
 		padding: 14px;
 		background: none;
 		border: 1px solid var(--color-border);
@@ -3716,9 +3857,8 @@
 		height: 18px;
 	}
 
-	/* Checklist mode toggle */
-	.checklist-mode-toggle {
-		position: relative;
+	/* Checklist settings row */
+	.checklist-settings-row {
 		padding: 10px 0;
 		margin-bottom: var(--space-sm);
 		border-bottom: 1px solid var(--color-border);
@@ -3749,26 +3889,34 @@
 		height: 16px;
 	}
 
-	.mode-picker-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 19;
+	/* Checklist settings modal */
+	.checklist-settings-modal .modal-body {
+		padding: var(--space-md);
 	}
 
-	.mode-picker-popup {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		margin-top: 6px;
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg, 12px);
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-		z-index: 20;
-		overflow: hidden;
+	.settings-section {
+		margin-bottom: var(--space-md);
+	}
+
+	.settings-section:last-child {
+		margin-bottom: 0;
+	}
+
+	.settings-section-label {
+		font-size: var(--font-sm);
+		font-weight: 700;
+		color: var(--color-text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		margin-bottom: var(--space-sm);
+	}
+
+	.settings-mode-options {
 		display: flex;
 		flex-direction: column;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg, 12px);
+		overflow: hidden;
 	}
 
 	.mode-option {
@@ -3843,44 +3991,6 @@
 		color: var(--color-text-muted);
 		line-height: 1.4;
 		padding-left: 26px;
-	}
-
-	/* Manage States button */
-	.manage-states-btn {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 10px 16px;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: none;
-		color: var(--color-text-secondary);
-		font-size: var(--font-sm);
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.manage-states-btn:hover {
-		border-color: #ec4899;
-		color: #ec4899;
-	}
-
-	.manage-states-dots {
-		display: flex;
-		gap: 4px;
-	}
-
-	.state-dot-mini {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		flex-shrink: 0;
-	}
-
-	/* States editor modal */
-	.states-editor-modal .modal-body {
-		padding: var(--space-md);
 	}
 
 	/* Checklist states editor */

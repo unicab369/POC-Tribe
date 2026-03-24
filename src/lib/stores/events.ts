@@ -2,9 +2,33 @@ import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { Event, ItineraryItem, TribeMember } from '$lib/types';
 
-const STORAGE_KEY = 'tribe-events';
+const USER_STORAGE_KEY = 'tribe-current-user';
 
-const mockEvents: Event[] = [
+function getStorageKey(): string {
+	if (!browser) return 'tribe-events';
+	try {
+		const stored = localStorage.getItem(USER_STORAGE_KEY);
+		if (stored) {
+			const user = JSON.parse(stored);
+			if (user?.id) return `tribe-events-${user.id}`;
+		}
+	} catch {}
+	return 'tribe-events';
+}
+
+function getCurrentUserId(): string | null {
+	if (!browser) return null;
+	try {
+		const stored = localStorage.getItem(USER_STORAGE_KEY);
+		if (stored) {
+			const user = JSON.parse(stored);
+			return user?.id ?? null;
+		}
+	} catch {}
+	return null;
+}
+
+const alexMockEvents: Event[] = [
 	{
 		id: '1',
 		title: 'Pacific Coast Road Trip',
@@ -392,10 +416,212 @@ const mockEvents: Event[] = [
 	}
 ];
 
+const mayaMockEvents: Event[] = [
+	{
+		id: '1',
+		title: 'Mountain Yoga Retreat',
+		description: 'A rejuvenating 3-day yoga retreat in the red rocks of Sedona. Sunrise sessions, canyon hikes, and evening meditation.',
+		startDate: '2026-04-10',
+		endDate: '2026-04-12',
+		location: 'Sedona, AZ',
+		category: 'travel',
+		attendees: 2,
+		tribeGroups: [],
+		tribe: [
+			{ id: 't1', firstName: 'Lena', lastName: 'Brooks', email: 'lena@email.com', rsvp: 'going' },
+			{ id: 't2', firstName: 'Priya', lastName: 'Sharma', phone: '555-0501', rsvp: 'going' }
+		],
+		itinerary: [
+			{
+				type: 'activity',
+				id: 'a1',
+				title: 'Sunrise Yoga',
+				date: '2026-04-10',
+				startTime: '06:00',
+				endTime: '07:30',
+				location: 'Sedona Spirit Resort - Terrace',
+				notes: 'Bring your own mat or borrow one from the resort',
+				status: 'finalized'
+			},
+			{
+				type: 'activity',
+				id: 'a2',
+				title: 'Guided Canyon Hike',
+				date: '2026-04-11',
+				startTime: '09:00',
+				endTime: '13:00',
+				location: 'Cathedral Rock Trail, Sedona',
+				notes: 'Moderate difficulty — wear hiking boots and bring water',
+				status: 'finalized'
+			},
+			{
+				type: 'activity',
+				id: 'a3',
+				title: 'Evening Meditation',
+				date: '2026-04-12',
+				startTime: '18:00',
+				endTime: '19:30',
+				location: 'Sedona Spirit Resort - Garden',
+				notes: 'Guided sound bath meditation to close the retreat',
+				status: 'todo'
+			},
+			{
+				type: 'hotel',
+				id: 'h1',
+				name: 'Sedona Spirit Resort',
+				checkInDate: '2026-04-10',
+				checkOutDate: '2026-04-12',
+				location: 'Sedona, AZ',
+				confirmationNumber: 'SSR-20461',
+				status: 'finalized'
+			}
+		],
+		createdAt: '2026-03-08T09:00:00Z'
+	},
+	{
+		id: '2',
+		title: 'Dinner Party',
+		description: 'A cozy evening with friends — homemade dinner followed by board games.',
+		startDate: '2026-03-29',
+		endDate: '2026-03-29',
+		location: "Maya's Home",
+		category: 'social',
+		attendees: 3,
+		tribeGroups: [],
+		tribe: [
+			{ id: 't3', firstName: 'Aiden', lastName: 'Cole', email: 'aiden@email.com', rsvp: 'going' },
+			{ id: 't4', firstName: 'Sophie', lastName: 'Tran', rsvp: 'going' },
+			{ id: 't5', firstName: 'Marcus', lastName: 'Webb', phone: '555-0502', rsvp: 'maybe' }
+		],
+		itinerary: [
+			{
+				type: 'activity',
+				id: 'a4',
+				title: 'Dinner & Board Games',
+				date: '2026-03-29',
+				startTime: '18:30',
+				endTime: '22:00',
+				location: "Maya's Home",
+				notes: 'Menu: homemade pasta, salad, tiramisu. Games: Catan, Codenames.',
+				status: 'finalized'
+			}
+		],
+		createdAt: '2026-03-15T12:00:00Z'
+	}
+];
+
+const jordanMockEvents: Event[] = [
+	{
+		id: '1',
+		title: 'Spring Hackathon',
+		description: 'A 2-day hackathon to build, ship, and demo innovative projects. Teams of 2–5.',
+		startDate: '2026-04-05',
+		endDate: '2026-04-06',
+		location: 'TechSpace Downtown',
+		category: 'business',
+		attendees: 3,
+		tribeGroups: [],
+		tribe: [
+			{ id: 't1', firstName: 'Dev', lastName: 'Kapoor', email: 'dev@email.com', rsvp: 'going' },
+			{ id: 't2', firstName: 'Riley', lastName: 'Chen', rsvp: 'going' },
+			{ id: 't3', firstName: 'Casey', lastName: 'Nguyen', phone: '555-0601', rsvp: 'going' }
+		],
+		itinerary: [
+			{
+				type: 'activity',
+				id: 'a1',
+				title: 'Opening Ceremony',
+				date: '2026-04-05',
+				startTime: '09:00',
+				endTime: '10:00',
+				location: 'TechSpace Downtown - Main Hall',
+				notes: 'Keynote speaker + team formation',
+				status: 'finalized'
+			},
+			{
+				type: 'activity',
+				id: 'a2',
+				title: 'Hacking Session',
+				date: '2026-04-05',
+				startTime: '10:00',
+				endTime: '22:00',
+				location: 'TechSpace Downtown',
+				notes: 'Lunch and dinner provided. Mentors available.',
+				status: 'finalized'
+			},
+			{
+				type: 'activity',
+				id: 'a3',
+				title: 'Demos & Judging',
+				date: '2026-04-06',
+				startTime: '14:00',
+				endTime: '17:00',
+				location: 'TechSpace Downtown - Main Hall',
+				notes: '5-minute demos per team. Prizes announced at 4:30.',
+				status: 'todo'
+			}
+		],
+		createdAt: '2026-03-10T08:00:00Z'
+	},
+	{
+		id: '2',
+		title: "Jake's Birthday Bash",
+		description: "Outdoor birthday celebration for Jake — BBQ, games, and a live DJ set by the river.",
+		startDate: '2026-04-18',
+		endDate: '2026-04-18',
+		location: 'Riverside Park',
+		category: 'social',
+		attendees: 4,
+		tribeGroups: [],
+		tribe: [
+			{ id: 't4', firstName: 'Jake', lastName: 'Morrison', email: 'jake@email.com', rsvp: 'going' },
+			{ id: 't5', firstName: 'Tara', lastName: 'Singh', rsvp: 'going' },
+			{ id: 't6', firstName: 'Eli', lastName: 'Watson', phone: '555-0602', rsvp: 'going' },
+			{ id: 't7', firstName: 'Nora', lastName: 'Kim', rsvp: 'maybe' }
+		],
+		itinerary: [
+			{
+				type: 'activity',
+				id: 'a4',
+				title: 'BBQ & Games',
+				date: '2026-04-18',
+				startTime: '12:00',
+				endTime: '16:00',
+				location: 'Riverside Park - Pavilion A',
+				notes: 'Burgers, hot dogs, cornhole, frisbee. BYOB.',
+				status: 'finalized'
+			},
+			{
+				type: 'activity',
+				id: 'a5',
+				title: 'Live DJ Set',
+				date: '2026-04-18',
+				startTime: '17:00',
+				endTime: '20:00',
+				location: 'Riverside Park - Amphitheater',
+				notes: 'DJ Spinz on the decks. Bring a blanket!',
+				status: 'todo'
+			}
+		],
+		createdAt: '2026-03-14T11:00:00Z'
+	}
+];
+
+function getMockEventsForUser(userId: string | null): Event[] {
+	switch (userId) {
+		case 'alex': return alexMockEvents;
+		case 'maya': return mayaMockEvents;
+		case 'jordan': return jordanMockEvents;
+		default: return alexMockEvents;
+	}
+}
+
 function loadEvents(): Event[] {
-	if (!browser) return mockEvents;
+	if (!browser) return alexMockEvents;
+	const key = getStorageKey();
+	const userId = getCurrentUserId();
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
+		const stored = localStorage.getItem(key);
 		if (stored) {
 			const parsed: Event[] = JSON.parse(stored);
 			return parsed.map((e) => ({
@@ -414,13 +640,14 @@ function loadEvents(): Event[] {
 	} catch {
 		// ignore parse errors
 	}
-	return mockEvents;
+	return getMockEventsForUser(userId);
 }
 
 function saveEvents(eventList: Event[]) {
 	if (!browser) return;
+	const key = getStorageKey();
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(eventList));
+		localStorage.setItem(key, JSON.stringify(eventList));
 	} catch {
 		// ignore storage errors
 	}
@@ -432,6 +659,11 @@ export const events = writable<Event[]>(loadEvents());
 events.subscribe((value) => {
 	saveEvents(value);
 });
+
+export function reloadEvents() {
+	const loaded = loadEvents();
+	events.set(loaded);
+}
 
 let nextId = browser
 	? Math.max(...loadEvents().map((e) => parseInt(e.id) || 0), 0) + 1

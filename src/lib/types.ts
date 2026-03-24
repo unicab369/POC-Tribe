@@ -1,3 +1,9 @@
+export interface User {
+	id: string;
+	name: string;
+	email: string;
+}
+
 export type EventCategory = 'social' | 'business' | 'sports' | 'music' | 'travel' | 'wedding' | 'other';
 
 export type ItemStatus = 'todo' | 'voting' | 'finalized' | 'cancelled';
